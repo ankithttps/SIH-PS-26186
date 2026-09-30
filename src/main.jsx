@@ -370,51 +370,10 @@ function Privacy({role,onReset}){
 }
 
 createRoot(document.getElementById('root')).render(<AppErrorBoundary><App/></AppErrorBoundary>)
- async function reviewAlert(id){
-  const alert=alerts.find(x=>x.id===id);
-  logSecurity(`Alert review by ${role}`);
-  try{
-   const r=await fetch(`${API_BASE}/api/alerts/${id}/review`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({role})});
-   if(!r.ok)throw new Error('Review API failed');
-   setBackendStatus('connected');
-  }catch{setBackendStatus('offline');}
-  setAlerts(a=>a.map(x=>x.id===id?{...x,status:'Reviewed',reviewedBy:role,reviewedAt:'Just now'}:x));
-  if(alert)setActivity(v=>[{id:Date.now(),type:'review',text:`${alert.name} alert reviewed by ${role}`,time:'Just now'},...v].slice(0,8));
- }
- async function planIntervention(alert,action){
-  logSecurity(`Support action planned by ${role}`);
-  try{
-   const ir=await fetch(`${API_BASE}/api/interventions`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({person_id:alert.personId,name:alert.name,action})});
-   if(!ir.ok)throw new Error('Intervention API failed');
-   const savedIntervention=await ir.json();
-   const fr=await fetch(`${API_BASE}/api/followups`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({person_id:alert.personId,name:alert.name,action})});
-   if(!fr.ok)throw new Error('Follow-up API failed');
-   const savedFollowup=await fr.json();
-   setBackendStatus('connected');
-   setInterventions(v=>[{id:savedIntervention.id,personId:savedIntervention.person_id,name:savedIntervention.name,action:savedIntervention.action,status:savedIntervention.status,time:savedIntervention.created_at},...v]);
-   setFollowups(v=>[{id:savedFollowup.id,personId:savedFollowup.person_id,name:savedFollowup.name,action:savedFollowup.action,status:savedFollowup.status,outcome:savedFollowup.outcome,time:savedFollowup.created_at},...v]);
-   setActivity(v=>[{id:Date.now(),type:'support',text:`${alert.name}: ${action} planned`,time:'Just now'},...v].slice(0,8));
-  }catch{setBackendStatus('offline');}
- }
- async function recordOutcome(id,outcome){
-  logSecurity(`Follow-up outcome recorded by ${role}`);
-  const item=followups.find(x=>x.id===id);
-  try{
-   const r=await fetch(`${API_BASE}/api/followups/${id}/outcome`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({outcome})});
-   if(!r.ok)throw new Error('Follow-up API failed');
-   const saved=await r.json();
-   setBackendStatus('connected');
-   setFollowups(v=>v.map(x=>x.id===id?{...x,status:saved.status,outcome:saved.outcome}:x));
-  }catch{setBackendStatus('offline');}
-  if(item){
-   setActivity(v=>[{id:Date.now(),type:'outcome',text:`${item.name} follow-up recorded: ${outcome}`,time:'Just now'},...v].slice(0,8));
-   setPersonnel(v=>v.map(p=>{
-    if(p.id!==item.personId)return p;
-    const score=outcome==='Improved'?Math.min(100,p.wellness+5):outcome==='Stable'?p.wellness:Math.max(0,p.wellness-2);
-    const [risk]=riskFromScore(score);
-    const history=[...(p.history||[]),{date:'Follow-up',wellness:score,risk}].slice(-10);
-    return {...p,wellness:score,risk,trend:[...p.trend.slice(1),score],history,pattern:getPattern(history),last:'Follow-up'};
-   }));
-  }
- }
+ async function reviewAlert(id){const alert=alerts.find(x=>x.id===id);try{const saved=await fetchJson('/api/alerts/'+id+'/review',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({role})});setBackendStatus('connected');setAlerts(v=>v.map(x=>x.id===id?mapAlert(saved):x));if(alert){logSecurity('Alert review by '+role);setActivity(v=>[{id:Date.now(),type:'review',text:alert.name+' alert reviewed by '+role,time:'Just now'},...v].slice(0,8));}}catch{setBackendStatus('offline');}}
+
+ async function planIntervention(alert,action){try{const savedIntervention=await fetchJson('/api/interventions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({person_id:alert.personId,name:alert.name,action})});const savedFollowup=await fetchJson('/api/followups',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({person_id:alert.personId,name:alert.name,action})});setBackendStatus('connected');setInterventions(v=>[mapIntervention(savedIntervention),...v]);setFollowups(v=>[mapFollowup(savedFollowup),...v]);logSecurity('Support action planned by '+role);setActivity(v=>[{id:Date.now(),type:'support',text:alert.name+': '+action+' planned',time:'Just now'},...v].slice(0,8));}catch{setBackendStatus('offline');}}
+
+ async function recordOutcome(id,outcome){const item=followups.find(x=>x.id===id);try{const saved=await fetchJson('/api/followups/'+id+'/outcome',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({outcome})});setBackendStatus('connected');setFollowups(v=>v.map(x=>x.id===id?mapFollowup(saved):x));const people=await fetchJson('/api/personnel');setPersonnel(people.map(x=>mapServerPersonnel(x,personnel.find(p=>p.id===x.id))));if(item){logSecurity('Follow-up outcome recorded by '+role);setActivity(v=>[{id:Date.now(),type:'outcome',text:item.name+' follow-up recorded: '+outcome,time:'Just now'},...v].slice(0,8));}}catch{setBackendStatus('offline');}}
+
 ;
