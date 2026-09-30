@@ -43,8 +43,9 @@ function App(){
    const nextHistory=[...(current.history||[]),{date:'Just now',wellness:result.wellness,risk:result.risk}].slice(-10);
    const pattern=getPattern(nextHistory);
    setSubmitted(true);
+   setActivity(v=>[{id:Date.now(),type:'checkin',text:`${current.name} completed a confidential wellness check-in`,time:'Just now'},...v].slice(0,8));
    setPersonnel(p=>p.map((x,i)=>i===0?{...x,wellness:result.wellness,risk:result.risk,last:'Just now',trend:[...x.trend.slice(1),result.wellness],checkins:x.checkins+1,riskFactors:result.factors,history:nextHistory,pattern}:x));
-   if(result.risk!=='Low'||pattern.key==='rising'||pattern.key==='persistent') setAlerts(a=>[{id:Date.now(),name:current.name,risk:result.risk,reason:pattern.key==='rising'||pattern.key==='persistent'?pattern.type:(result.factors[0]?.label||'Wellness signal'),time:'Just now',status:'Open'},...a].slice(0,4));
+   if(result.risk!=='Low'||pattern.key==='rising'||pattern.key==='persistent') setAlerts(a=>[{id:Date.now(),personId:current.id,name:current.name,risk:result.risk,reason:pattern.key==='rising'||pattern.key==='persistent'?pattern.type:(result.factors[0]?.label||'Wellness signal'),time:'Just now',status:'Open'},...a].slice(0,4));
  }
  return <div className="app">
   <header className="topbar">
