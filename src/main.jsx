@@ -84,6 +84,7 @@ function App(){
     {page==='assessment'&&<Assessment form={form} setForm={setForm} submit={submit} submitted={submitted}/>}
     {page==='personnel'&&<Personnel personnel={personnel} onSelect={setSelected}/>}
     {page==='privacy'&&<Privacy role={role} onReset={resetWorkspace}/>}
+    {page==='workspace'&&<Workspace stats={stats} alerts={alerts} activity={activity} personnel={visiblePersonnel} onPersonnel={()=>setPage('personnel')} onDashboard={()=>setPage('dashboard')} onPrivacy={()=>setPage('privacy')} onAssessment={()=>setPage('assessment')}/>}
    </main>
   </div>
   {selected&&<PersonnelModal p={selected} onClose={()=>setSelected(null)}/>}
