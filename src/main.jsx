@@ -1,6 +1,6 @@
 import React,{useMemo,useState} from 'react';
 import {createRoot} from 'react-dom/client';
-import {Shield,LayoutDashboard,ClipboardCheck,Users,LockKeyhole,AlertTriangle,HeartPulse,CalendarDays,Activity,ChevronRight,CheckCircle2,Clock3,Brain,Menu,X,LogOut,TrendingUp,UserRound,BarChart3,Info,MessageCircle,SlidersHorizontal,FolderOpen,FileText,Settings2} from 'lucide-react';
+import {Shield,LayoutDashboard,ClipboardCheck,Users,LockKeyhole,AlertTriangle,HeartPulse,CalendarDays,Activity,ChevronRight,CheckCircle2,Clock3,Brain,Menu,X,LogOut,TrendingUp,UserRound,BarChart3,Info,MessageCircle,SlidersHorizontal,FolderOpen,FileText,Settings2,ArrowUpRight,ArrowDownRight} from 'lucide-react';
 import './styles.css';
 
 const initialPersonnel=[
@@ -124,6 +124,53 @@ function Security({role,events,sessionMinutes,setSessionMinutes,mfaDemo,setMfaDe
  </div>
 }
 
+
+function WhatIfSimulator({personnel}){
+ const eligible=personnel;
+ const [selectedId,setSelectedId]=useState(eligible[0]?.id||'');
+ const selected=eligible.find(p=>p.id===selectedId)||eligible[0];
+ const baseline=useMemo(()=>{
+  if(!selected)return {sleep:3,workload:3,duty:8,leave:3};
+  return {
+   sleep:selected.wellness<=55?2:selected.wellness<=70?3:4,
+   workload:selected.risk==='High'?5:selected.risk==='Elevated'?4:2,
+   duty:selected.duty,
+   leave:selected.leave
+  };
+ },[selected]);
+ const [scenario,setScenario]=useState(baseline);
+ React.useEffect(()=>setScenario(baseline),[selectedId,baseline.sleep,baseline.workload,baseline.duty,baseline.leave]);
+ if(!selected)return null;
+ const delta=(scenario.sleep-baseline.sleep)*8+(baseline.workload-scenario.workload)*5+(baseline.duty-scenario.duty)*3+(scenario.leave-baseline.leave)*2;
+ const simulated=Math.round(Math.max(0,Math.min(100,selected.wellness+delta)));
+ const [risk]=riskFromScore(simulated);
+ const diff=simulated-selected.wellness;
+ const drivers=[
+  {label:'Sleep quality',delta:(scenario.sleep-baseline.sleep)*8},
+  {label:'Workload',delta:(baseline.workload-scenario.workload)*5},
+  {label:'Duty hours',delta:(baseline.duty-scenario.duty)*3},
+  {label:'Leave opportunity',delta:(scenario.leave-baseline.leave)*2}
+ ].filter(x=>x.delta!==0).sort((a,b)=>Math.abs(b.delta)-Math.abs(a.delta)).slice(0,3);
+ const update=(key,value)=>setScenario(v=>({...v,[key]:Number(value)}));
+ return <section className="card whatifcard" id="what-if-simulator">
+  <div className="cardhead"><div><h2>Explainable Risk & What-if Simulator</h2><p>Explore how welfare conditions could change a demo risk signal before planning support.</p></div><span className="simpill"><SlidersHorizontal size={13}/> Scenario mode</span></div>
+  <div className="simgrid">
+   <div className="simcontrols">
+    <label className="simselect"><span>Personnel</span><select value={selected.id} onChange={e=>setSelectedId(e.target.value)}>{eligible.map(p=><option key={p.id} value={p.id}>{p.name} • {p.unit}</option>)}</select></label>
+    <div className="simnote"><Info size={14}/><span>Current record stays unchanged. This is an illustrative scenario simulation using the prototype's demo score logic.</span></div>
+    {[['sleep','Sleep quality',1,5],['workload','Perceived workload',1,5],['duty','Duty hours / day',6,14],['leave','Leave days / recent period',0,7]].map(([key,label,min,max])=><label className="simrange" key={key}><div><b>{label}</b><strong>{scenario[key]}{key==='duty'?'h':''}</strong></div><input type="range" min={min} max={max} value={scenario[key]} onChange={e=>update(key,e.target.value)}/><div className="simticks"><span>{min}{key==='duty'?'h':''}</span><span>{max}{key==='duty'?'h':''}</span></div></label>)}
+   </div>
+   <div className="simresult">
+    <div className="simscorehead"><div><span>Current welfare</span><b>{selected.wellness}%</b></div><ArrowUpRight size={19}/><div><span>Scenario estimate</span><b>{simulated}%</b></div></div>
+    <div className="simmeter"><i style={{width:simulated+'%'}}/></div>
+    <div className="simchange">{diff>0?<ArrowUpRight size={15}/>:diff<0?<ArrowDownRight size={15}/>:<Activity size={15}/>}<b>{diff>0?'+':''}{diff} points</b><span>{risk} attention level</span></div>
+    <div className="simdrivers"><b>What changed the signal?</b>{drivers.length?drivers.map(d=><div key={d.label}><span>{d.label}</span><strong className={d.delta>0?'positive':'negative'}>{d.delta>0?'+':''}{d.delta}</strong></div>):<div className="simempty">Move a scenario control to see the contributing change.</div>}</div>
+    <div className="simwarning"><Shield size={14}/><span>Scenario output is decision support only. It is not a diagnosis, validated clinical prediction, or automatic personnel action.</span></div>
+   </div>
+  </div>
+ </section>;
+}
+
 function Dashboard({stats,personnel,role,onAssessment,onSelect,onPersonnel,alerts,onReviewAlert,interventions,followups,activity,onIntervention,onOutcome}){
  const reviewedAlerts=alerts.filter(a=>a.status==='Reviewed');
  const goToRecommended=(type)=>{ if(type==='checkin'){onAssessment();return;} document.getElementById(reviewedAlerts.length?'welfare-intervention-workflow':'early-welfare-alerts')?.scrollIntoView({behavior:'smooth',block:'start'}); };
@@ -134,6 +181,7 @@ function Dashboard({stats,personnel,role,onAssessment,onSelect,onPersonnel,alert
   <div className="notice"><Shield size={19}/><div><b>Confidential welfare workspace</b><span>Only authorized roles can access identifiable information. Risk indicators are support signals, not diagnoses.</span></div></div>
   <section className="card demoflow"><div className="cardhead"><div><h2>End-to-end welfare flow</h2><p>Presentation-ready demo path from voluntary check-in to human-reviewed outcome</p></div><span className="flowcount">{flow.filter(x=>x.done).length}/5 complete</span></div><div className="flowsteps">{flow.map((x,i)=><div className={'flowstep '+(x.done?'complete':'pending')} key={x.title}><div className="flowcircle">{x.done?<CheckCircle2 size={15}/>:<span>{String(i+1).padStart(2,'0')}</span>}</div><div><b>{x.title}</b><span>{x.done?'Completed in this demo':'Waiting for previous stage'}</span></div>{i<flow.length-1&&<div className={'flowconnector '+(flow[i+1].done?'complete':'')}/>}</div>)}</div><div className="flownote"><Info size={14}/><span>This is a demo workflow. Predictive signals are illustrative and require authorized human review before welfare action.</span></div></section>
   <div className="stats"><Stat icon={Users} label="Personnel monitored" value={stats.total} sub="Active demo records"/><Stat icon={HeartPulse} label="Avg. wellness" value={stats.avg+'%'} sub="Self-report + workload signals"/><Stat icon={AlertTriangle} label="Attention signals" value={stats.elevated+stats.high} sub={high+' high • '+elevated+' elevated'} warn/><Stat icon={ClipboardCheck} label="Avg. check-ins" value={stats.checkins} sub="Across demo personnel"/></div>
+  {role!=='Personnel'&&<WhatIfSimulator personnel={personnel}/>} 
   {role!=='Personnel'&&alerts.length>0&&<section id="early-welfare-alerts" className="card alertcard"><div className="cardhead"><div><h2>Early welfare alerts</h2><p>New signals requiring authorized human review</p></div><span className="livepill"><Activity size={13}/> Live demo</span></div><div className="alertlist">{alerts.map(a=><div className="alertitem" key={a.id}><div className="alerticon"><AlertTriangle size={17}/></div><div className="alertbody"><b>{a.name} • {a.risk} attention signal</b><span>Primary factor: {a.reason} • {a.time}</span>{a.status==='Reviewed'&&<small className="reviewmeta">Reviewed by {a.reviewedBy} • {a.reviewedAt}</small>}</div>{a.status==='Open'?<button className="textbtn" onClick={()=>onReviewAlert(a.id)}>Review <ChevronRight size={15}/></button>:<span className="reviewedpill"><CheckCircle2 size={13}/> Reviewed</span>}</div>)}</div><div className="alertfoot"><CheckCircle2 size={15}/> Alerts are prompts for welfare review, not automated decisions. Open: {alerts.filter(a=>a.status==='Open').length} • Reviewed: {alerts.filter(a=>a.status==='Reviewed').length}</div></section>}{role!=='Personnel'&&alerts.some(a=>a.status==='Reviewed')&&<section id="welfare-intervention-workflow" className="card interventioncard"><div className="cardhead"><div><h2>Welfare intervention workflow</h2><p>Human-led next steps after alert review</p></div><span className="livepill">Review → Support</span></div><div className="workflow"><div className="workflowstep done"><b>01</b><span>Signal detected</span></div><div className="workflowline"/><div className="workflowstep done"><b>02</b><span>Officer reviewed</span></div><div className="workflowline"/><div className="workflowstep active"><b>03</b><span>Choose support</span></div><div className="workflowline"/><div className="workflowstep"><b>04</b><span>Follow-up</span></div></div><div className="interventionchoices">{alerts.filter(a=>a.status==='Reviewed').slice(0,2).map(a=><div className="interventionitem" key={a.id}><div><b>{a.name}</b><span>{a.reason}</span></div><div className="choicebuttons"><button className="softbtn" onClick={()=>onIntervention(a,'Confidential welfare conversation')}>Welfare conversation</button><button className="softbtn" onClick={()=>onIntervention(a,'Review duty / leave context')}>Duty / leave review</button></div></div>)}</div>{interventions.length>0&&<div className="followups"><b>Planned follow-ups</b>{interventions.slice(0,3).map(x=><div key={x.id}><span>{x.name} • {x.action}</span><small>{x.time}</small></div>)}</div>}{followups.length>0&&<div className="outcomes"><div className="outcomehead"><div><b>Follow-up & outcome tracking</b><span>Record what happened after human-led support.</span></div><span className="outcomepill">{followups.filter(x=>x.status==='Pending').length} pending</span></div>{followups.slice(0,3).map(x=><div className="outcomeitem" key={x.id}><div className="outcomename"><b>{x.name}</b><span>{x.action}</span></div>{x.status==='Pending'?<div className="outcomebuttons"><button className="outcome improved" onClick={()=>onOutcome(x.id,'Improved')}>Improved</button><button className="outcome stable" onClick={()=>onOutcome(x.id,'Stable')}>Stable</button><button className="outcome review" onClick={()=>onOutcome(x.id,'Further review required')}>Further review</button></div>:<span className={'outcomestatus '+x.outcome.toLowerCase().replaceAll(' ','-')}><CheckCircle2 size={13}/>{x.outcome}</span>}</div>)}</div>}</section>}{role!=='Personnel'&&<section className="card activitycard"><div className="cardhead"><div><h2>Welfare activity timeline</h2><p>Recent human-reviewed actions in this demo workspace</p></div><Clock3 size={18} className="mutedicon"/></div><div className="activitylist">{activity.length===0?<div className="emptyactivity">No activity yet. Complete a check-in or review an alert to populate the timeline.</div>:activity.slice(0,5).map(x=><div className="activityitem" key={x.id}><div className={'activitydot '+x.type}></div><div><b>{x.text}</b><span>{x.time}</span></div></div>)}</div></section>}<section className="analytics">
    <div className="card trendcard"><div className="cardhead"><div><h2>Wellness trend</h2><p>Recent illustrative check-in pattern</p></div><div className="legend"><span><i/>Current</span></div></div><TrendChart personnel={personnel}/></div>
    <div className="card distribution"><div className="cardhead"><div><h2>Signal distribution</h2><p>Current demo risk signals</p></div><BarChart3 size={18} className="mutedicon"/></div><div className="distrows"><DistRow label="Low" count={low} total={personnel.length} type="low"/><DistRow label="Elevated" count={elevated} total={personnel.length} type="elevated"/><DistRow label="High" count={high} total={personnel.length} type="high"/></div><div className="signalnote"><Info size={14}/> Signals indicate review priority, not diagnosis.</div></div>
