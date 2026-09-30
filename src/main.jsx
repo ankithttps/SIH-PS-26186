@@ -95,7 +95,7 @@ function App(){
     {page==='workspace'&&<Workspace stats={stats} alerts={alerts} activity={activity} personnel={visiblePersonnel} onPersonnel={()=>setPage('personnel')} onDashboard={()=>setPage('dashboard')} onPrivacy={()=>setPage('privacy')} onAssessment={()=>setPage('assessment')}/>}
    </main>
   </div>
-  {selected&&<PersonnelModal p={selected} onClose={()=>setSelected(null)}/>}
+  {selected&&<PersonnelModal p={selected} alerts={alerts} interventions={interventions} followups={followups} activity={activity} onClose={()=>setSelected(null)}/>}
  </div>
 }
 
@@ -269,8 +269,50 @@ function Personnel({personnel,onSelect}){
  return <div className="page"><div className="pagehead"><div><div className="eyebrow">AUTHORIZED VIEW</div><h1>Personnel</h1><p>Demo personnel records with welfare-oriented indicators.</p></div><div className="secure"><Users size={16}/> {rows.length} visible records</div></div><div className="card tablecard"><div className="tabletools"><div className="searchbox"><Users size={15}/><input aria-label="Search personnel" placeholder="Search personnel..." value={q} onChange={e=>setQ(e.target.value)}/></div><div className="filterbox"><SlidersHorizontal size={14}/><select value={unit} onChange={e=>setUnit(e.target.value)}>{units.map(u=><option key={u}>{u}</option>)}</select></div></div><div className="tablewrap"><table><thead><tr><th>Personnel</th><th>Deployment</th><th>Wellness</th><th>Duty</th><th>Leave</th><th>Signal</th><th>Last check-in</th></tr></thead><tbody>{rows.map(p=><tr key={p.id} onClick={()=>onSelect(p)} className="clickrow"><td><b>{p.name}</b><small>{p.id} • {p.unit}</small></td><td>{p.deployment}</td><td><div className="progress"><i style={{width:p.wellness+'%'}}/></div><small>{p.wellness}%</small></td><td>{p.duty}h</td><td>{p.leave} days</td><td><div className="tablebadges"><span className={'badge '+p.risk.toLowerCase()}>{p.risk}</span>{p.pattern&&p.pattern.key!=='stable'&&p.pattern.key!=='neutral'&&<span className={'patternbadge '+p.pattern.key}>{p.pattern.type}</span>}</div></td><td>{p.last}</td></tr>)}</tbody></table></div></div></div>;
 }
 
-function PersonnelModal({p,onClose}){
- return <div className="modalback" onClick={onClose}><div className="modal" onClick={e=>e.stopPropagation()}><button className="closebtn" onClick={onClose}><X size={17}/></button><div className="modalprofile"><div className="modalavatar">{p.name.split(' ').map(x=>x[0]).join('')}</div><div><div className="eyebrow">DEMO PERSONNEL PROFILE</div><h2>{p.name}</h2><p>{p.id} • {p.unit} • {p.deployment}</p></div><span className={'badge '+p.risk.toLowerCase()}>{p.risk} signal</span></div><div className="modalstats"><MiniStat label="Wellness" value={p.wellness+'%'}/><MiniStat label="Duty pattern" value={p.duty+'h/day'}/><MiniStat label="Leave" value={p.leave+' days'}/><MiniStat label="Check-ins" value={p.checkins}/></div><div className="patternbox"><TrendingUp size={16}/><div><b>{p.pattern?.type||'Pattern unavailable'}</b><span>{p.pattern?.text||'More check-ins are needed for trend analysis.'}</span></div></div><div className="contextbox"><MessageCircle size={17}/><div><b>Suggested review focus</b><span>{p.duty>=10?'Review extended duty pattern and offer a confidential welfare conversation.':p.leave<=2?'Consider discussing leave access and current workload.':'Continue routine welfare check-ins and monitor trend.'}</span></div></div><div className="factorbox"><div className="factorhead"><b>Risk factors detected</b><span>Illustrative engine output</span></div>{(p.riskFactors||[{label:p.duty>=10?'Duty hours':'Current wellness signal',value:1,weight:1}]).map(f=><div className="factor" key={f.label}><span>{f.label}</span><i><em style={{width:Math.min(100,Math.max(18,f.value/f.weight*100))+'%'}}/></i><small>review</small></div>)}</div><div className="inputbox"><div className="factorhead"><b>Signals considered</b><span>Prototype input categories</span></div><div className="inputchips"><span>Self-assessment</span><span>Duty schedule</span><span>Leave pattern</span><span>Deployment</span><span>Workload</span></div><div className="inputnote"><Info size={13}/> These inputs support welfare review; they are not a diagnosis or an autonomous decision.</div></div><div className="intervention"><div className="actionicon"><HeartPulse size={17}/></div><div><b>Human-led intervention</b><span>Offer a confidential conversation and review workload, rest and leave context before deciding next steps.</span></div></div><div className="historybox"><div className="factorhead"><b>Recent wellness history</b><span>Last 5 check-ins</span></div><div className="historyrows">{(p.history||[]).slice(-5).map((h,i)=><div className="historyrow" key={i}><span>{h.date}</span><strong>{h.wellness}%</strong><span className={'badge '+h.risk.toLowerCase()}>{h.risk}</span></div>)}</div><div className="patternnote"><TrendingUp size={14}/><span>{p.history&&p.history.length>2&&p.history[p.history.length-1].wellness<p.history[p.history.length-3].wellness?'Recent trend is declining — review workload, rest and leave context.':'Recent trend is stable or improving — continue routine welfare monitoring.'}</span></div></div><div className="modalnote"><Info size={15}/> This prototype shows illustrative data. A signal should be reviewed with context by an authorized welfare role.</div></div></div>;
+function PersonnelModal({p,alerts,interventions,followups,activity,onClose}){
+ const personAlerts=(alerts||[]).filter(x=>x.personId===p.id);
+ const personInterventions=(interventions||[]).filter(x=>x.personId===p.id);
+ const personFollowups=(followups||[]).filter(x=>x.personId===p.id);
+ const personActivity=(activity||[]).filter(x=>x.text?.includes(p.name));
+ const pattern=p.pattern?.type||'Pattern unavailable';
+ const focus=p.duty>=10?'Review extended duty pattern and offer a confidential welfare conversation.':p.leave<=2?'Consider discussing leave access and current workload.':'Continue routine welfare check-ins and monitor trend.';
+ return <div className="modalback" onClick={onClose}><div className="modal casefilemodal" onClick={e=>e.stopPropagation()}>
+  <button className="closebtn" onClick={onClose}><X size={17}/></button>
+  <div className="casefiletop"><div><div className="eyebrow">AUTHORIZED WELFARE CASE FILE</div><h2>{p.name}</h2><p>{p.id} • {p.unit} • {p.deployment}</p></div><span className={'badge '+p.risk.toLowerCase()}>{p.risk} signal</span></div>
+  <div className="casefilestatus"><Shield size={15}/><span>Human review required • Welfare support only • Demo data</span></div>
+  <div className="modalstats"><MiniStat label="Wellness" value={p.wellness+'%'}/><MiniStat label="Duty pattern" value={p.duty+'h/day'}/><MiniStat label="Leave" value={p.leave+' days'}/><MiniStat label="Check-ins" value={p.checkins}/></div>
+
+  <div className="casefilegrid">
+   <section className="casepanel"><div className="casepanelhead"><div><b>Risk & trend summary</b><span>Current illustrative signal</span></div><Activity size={16}/></div>
+    <div className="caseheadline"><strong>{pattern}</strong><span>{p.pattern?.text||'More check-ins are needed for trend analysis.'}</span></div>
+    <div className="casefocus"><MessageCircle size={16}/><div><b>Suggested review focus</b><span>{focus}</span></div></div>
+   </section>
+   <section className="casepanel"><div className="casepanelhead"><div><b>Observable contributors</b><span>Prototype signal inputs</span></div><Brain size={16}/></div>
+    <div className="driverlist">{(p.riskFactors||[{label:p.duty>=10?'Duty hours':'Current wellness signal',value:1,weight:1}]).map(f=><div className="driveritem" key={f.label}><span><b>{f.label}</b><small>Illustrative review factor</small></span><strong className="negative">Review</strong></div>)}</div>
+   </section>
+  </div>
+
+  <section className="casepanel casehistory"><div className="casepanelhead"><div><b>Wellness history</b><span>Recent check-ins and signal progression</span></div><TrendingUp size={16}/></div>
+   <div className="historyrows">{(p.history||[]).slice(-5).map((h,i)=><div className="historyrow" key={i}><span>{h.date}</span><strong>{h.wellness}%</strong><span className={'badge '+h.risk.toLowerCase()}>{h.risk}</span></div>)}</div>
+  </section>
+
+  <div className="casefilegrid">
+   <section className="casepanel"><div className="casepanelhead"><div><b>Alerts & review</b><span>{personAlerts.length} linked alert{personAlerts.length===1?'':'s'}</span></div><AlertTriangle size={16}/></div>
+    {personAlerts.length===0?<div className="caseempty">No linked welfare alerts in this demo session.</div>:personAlerts.map(a=><div className="caseitem" key={a.id}><div><b>{a.reason}</b><span>{a.time} • Reviewed by {a.reviewedBy||'Pending review'}</span></div><span className={'badge '+a.status.toLowerCase()}>{a.status}</span></div>)}
+   </section>
+   <section className="casepanel"><div className="casepanelhead"><div><b>Interventions & follow-up</b><span>Human-led support workflow</span></div><HeartPulse size={16}/></div>
+    {personInterventions.length===0?<div className="caseempty">No support action planned in this demo session.</div>:personInterventions.map(x=><div className="caseitem" key={x.id}><div><b>{x.action}</b><span>{x.time} • {x.status}</span></div></div>)}
+    {personFollowups.map(x=><div className="caseitem followupitem" key={x.id}><div><b>Follow-up: {x.outcome}</b><span>{x.time} • {x.status}</span></div></div>)}
+   </section>
+  </div>
+
+  <section className="casepanel"><div className="casepanelhead"><div><b>Welfare activity timeline</b><span>Linked human-reviewed activity</span></div><Clock3 size={16}/></div>
+   {personActivity.length===0?<div className="caseempty">No linked activity recorded yet. New check-ins, reviews and support actions will appear here.</div>:<div className="caseactivity">{personActivity.slice(0,6).map(x=><div className="caseactivityitem" key={x.id}><i></i><div><b>{x.text}</b><span>{x.time}</span></div></div>)}</div>}
+  </section>
+
+  <div className="inputbox"><div className="factorhead"><b>Signals considered</b><span>Prototype input categories</span></div><div className="inputchips"><span>Self-assessment</span><span>Duty schedule</span><span>Leave pattern</span><span>Deployment</span><span>Workload</span></div><div className="inputnote"><Info size={13}/> These inputs support welfare review; they are not a diagnosis or an autonomous decision.</div></div>
+  <div className="modalnote"><Info size={15}/> This prototype uses illustrative demo data. Production deployment would require validated models, consent/privacy controls, server-side authorization and appropriate security safeguards.</div>
+ </div></div>;
 }
 function MiniStat({label,value}){return <div><span>{label}</span><b>{value}</b></div>}
 
