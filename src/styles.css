@@ -342,3 +342,21 @@ th{background:#f1f6fb;color:#71839a}
 
 
 .backendbadge{font-size:11px;font-weight:700;padding:6px 9px;border-radius:999px;border:1px solid #d8dee8;background:#f5f7fa;text-transform:uppercase;letter-spacing:.04em}.backendbadge.connected{color:#167447;background:#eaf8f0;border-color:#b8e1c9}.backendbadge.offline{color:#9b3d2e;background:#fff1ee;border-color:#f1c2b9}.backendbadge.checking{color:#6b7280;background:#f3f4f6;border-color:#d8dce3}
+
+/* Commander aggregated welfare dashboard */
+.commander-page .hero{align-items:flex-start}
+.commander-summary{margin-bottom:15px;overflow:hidden}
+.commander-metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;padding:0 18px 18px}
+.commander-metrics>div{padding:14px;border:1px solid #dce7f2;background:#f7fbff;border-radius:10px}
+.commander-metrics span,.commander-metrics b,.commander-metrics small{display:block}
+.commander-metrics span{font-size:9px;color:#73839a}.commander-metrics b{font-size:20px;color:#18304f;margin:3px 0}.commander-metrics small{font-size:8px;color:#8b97a6}
+.commander-units{margin-bottom:15px;overflow:hidden}
+.commander-unit-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;padding:0 18px 18px}
+.commander-unit{padding:14px;border:1px solid #dfe7f0;border-radius:12px;background:linear-gradient(145deg,#fff,#f8fbff)}
+.commander-unit-head{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}.commander-unit-head b{display:block;font-size:12px}.commander-unit-head span{display:block;font-size:8px;color:#7b899b;margin-top:3px}.commander-unit-score{font-size:18px!important;font-weight:800;color:#2563eb!important}
+.commander-bar{height:7px;background:#e7eef5;border-radius:99px;overflow:hidden;margin:13px 0 11px}.commander-bar i{display:block;height:100%;background:linear-gradient(90deg,#2563eb,#60a5fa);border-radius:99px}
+.commander-facts{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}.commander-facts div{padding:7px;background:#f4f8fc;border-radius:7px}.commander-facts span,.commander-facts b{display:block}.commander-facts span{font-size:7px;color:#8592a3}.commander-facts b{font-size:9px;margin-top:2px;color:#31455f}
+.commander-note{font-size:8px;line-height:1.45;color:#718095;margin-top:10px}
+.commander-actions{margin-bottom:15px}.commander-action-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:0 18px 18px}.commander-action-grid>div{display:grid;gap:5px;padding:13px;border:1px solid #dce7f2;background:#f8fbff;border-radius:10px}.commander-action-grid svg{color:#2563eb}.commander-action-grid b{font-size:10px}.commander-action-grid span{font-size:8px;line-height:1.45;color:#7a8798}
+@media(max-width:950px){.commander-unit-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.commander-action-grid{grid-template-columns:1fr}.commander-metrics{grid-template-columns:1fr}}
+@media(max-width:600px){.commander-unit-grid{grid-template-columns:1fr}}
