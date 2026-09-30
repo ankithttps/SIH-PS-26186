@@ -1,6 +1,6 @@
 import React,{useMemo,useState} from 'react';
 import {createRoot} from 'react-dom/client';
-import {Shield,LayoutDashboard,ClipboardCheck,Users,LockKeyhole,AlertTriangle,HeartPulse,CalendarDays,Activity,ChevronRight,CheckCircle2,Clock3,Brain,Menu,X,LogOut,TrendingUp,UserRound,BarChart3,Info,MessageCircle,SlidersHorizontal} from 'lucide-react';
+import {Shield,LayoutDashboard,ClipboardCheck,Users,LockKeyhole,AlertTriangle,HeartPulse,CalendarDays,Activity,ChevronRight,CheckCircle2,Clock3,Brain,Menu,X,LogOut,TrendingUp,UserRound,BarChart3,Info,MessageCircle,SlidersHorizontal,FolderOpen,FileText,Settings2} from 'lucide-react';
 import './styles.css';
 
 const initialPersonnel=[
@@ -38,7 +38,7 @@ function App(){
  const [form,setForm]=useState({sleep:3,mood:3,energy:3,workload:3,concern:''});
  const visiblePersonnel=role==='Personnel'?[personnel[0]]:personnel;
  const stats=useMemo(()=>({total:visiblePersonnel.length,elevated:visiblePersonnel.filter(x=>x.risk==='Elevated').length,high:visiblePersonnel.filter(x=>x.risk==='High').length,avg:Math.round(visiblePersonnel.reduce((a,b)=>a+b.wellness,0)/visiblePersonnel.length),checkins:Math.round(visiblePersonnel.reduce((a,b)=>a+b.checkins,0)/visiblePersonnel.length)}),[visiblePersonnel]);
- const nav=role==='Personnel'?[['dashboard','Dashboard',LayoutDashboard],['assessment','Wellness Check-in',ClipboardCheck],['privacy','Privacy & Access',LockKeyhole]]:[['dashboard','Dashboard',LayoutDashboard],['assessment','Wellness Check-in',ClipboardCheck],['personnel','Personnel',Users],['privacy','Privacy & Access',LockKeyhole]];
+ const nav=role==='Personnel'?[['dashboard','Dashboard',LayoutDashboard],['assessment','Wellness Check-in',ClipboardCheck],['workspace','Workspace',FolderOpen],['privacy','Privacy & Access',LockKeyhole]]:[['dashboard','Dashboard',LayoutDashboard],['assessment','Wellness Check-in',ClipboardCheck],['personnel','Personnel',Users],['workspace','Workspace',FolderOpen],['privacy','Privacy & Access',LockKeyhole]];
  function handleSignOut(){
    setSignedIn(false);
    setMobile(false);
@@ -125,6 +125,31 @@ function Assessment({form,setForm,submit,submitted}){
  return <div className="page"><div className="pagehead"><div><div className="eyebrow">VOLUNTARY SELF-ASSESSMENT</div><h1>Wellness Check-in</h1><p>A short private check-in to help identify support needs.</p></div><div className="secure"><LockKeyhole size={16}/> Encrypted & confidential</div></div><div className="assessment"><div className="card formcard"><div className="formintro"><Brain size={23}/><div><h2>How have you been feeling?</h2><p>There are no right or wrong answers. Your responses are intended for welfare support.</p></div></div>{[['sleep','Sleep quality'],['mood','Mood & emotional balance'],['energy','Energy level'],['workload','Perceived workload']].map(([key,label])=><label className="range" key={key}><div><b>{label}</b><span>{labels[form[key]-1]}</span></div><input aria-label={label} type="range" min="1" max="5" value={form[key]} onChange={e=>setForm({...form,[key]:+e.target.value})}/><div className="ticks"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span></div></label>)}<label className="field"><b>Anything you want welfare staff to know?</b><textarea placeholder="Optional — share only what you are comfortable sharing" value={form.concern} onChange={e=>setForm({...form,concern:e.target.value})}/></label><div className="checkinpreview"><div><span>Check-in signal</span><b>{labels[avg-1]}</b></div><div className="mini-meter"><i style={{width:(avg/5*100)+'%'}}/></div></div><button className="primary wide" onClick={submit}><CheckCircle2 size={17}/> Submit confidential check-in</button>{submitted&&<div className="success"><CheckCircle2 size={18}/><div><b>Check-in recorded for this demo</b><span>A support signal was generated for authorized welfare review.</span></div></div>}</div><div className="card explainer"><h3>How the demo works</h3><Step n="01" title="Self-report" text="Personnel voluntarily share wellness indicators."/><Step n="02" title="Risk signal" text="Demo analytics combine responses with workload context."/><Step n="03" title="Human review" text="Authorized welfare staff review context before action."/><Step n="04" title="Support" text="The system suggests welfare-oriented interventions."/><div className="redflag"><AlertTriangle size={16}/><span>Signals are indicative only and should never be treated as a diagnosis.</span></div></div></div></div>;
 }
 function Step({n,title,text}){return <div className="step"><span>{n}</span><div><b>{title}</b><small>{text}</small></div></div>}
+
+function Workspace({stats,alerts,activity,personnel,onPersonnel,onDashboard,onPrivacy,onAssessment}){
+ const activeAlerts=alerts.filter(a=>a.status==='Open').length;
+ const recent=activity.length?activity.slice(0,5):[
+  {id:'w1',type:'checkin',text:'Wellness check-in workspace ready',time:'Now'},
+  {id:'w2',type:'review',text:'Welfare signals available for review',time:'Now'},
+  {id:'w3',type:'support',text:'Human-led support workflow ready',time:'Now'}
+ ];
+ return <div className="workspace-page">
+  <div className="workspace-head"><div><div className="eyebrow">WELFARE OPERATIONS</div><h1>Workspace</h1><p>Tools and resources to help you manage personnel welfare effectively.</p></div><button className="workspace-quick" onClick={onAssessment}><ClipboardCheck size={16}/> Quick check-in <ChevronRight size={15}/></button></div>
+  <div className="workspace-actions">
+   <button className="workspace-action blue" onClick={onPersonnel}><div className="wa-icon"><UserRound size={19}/></div><div><b>Add / view personnel</b><span>Open personnel welfare records and demo profiles.</span></div><ChevronRight/></button>
+   <button className="workspace-action green" onClick={onDashboard}><div className="wa-icon"><FileText size={19}/></div><div><b>View reports</b><span>Review wellness trends, signals and outcomes.</span></div><ChevronRight/></button>
+   <button className="workspace-action purple" onClick={onDashboard}><div className="wa-icon"><AlertTriangle size={19}/></div><div><b>Manage alerts</b><span>{activeAlerts} open welfare signal{activeAlerts===1?'':'s'} ready for review.</span></div><ChevronRight/></button>
+   <button className="workspace-action orange" onClick={onPrivacy}><div className="wa-icon"><Settings2 size={19}/></div><div><b>System settings</b><span>Review access, privacy and demo controls.</span></div><ChevronRight/></button>
+  </div>
+  <div className="workspace-grid">
+   <section className="card workspace-activity"><div className="cardhead"><div><h2>Recent Activity</h2><p>Latest actions in this demo workspace</p></div><Clock3 size={18} className="mutedicon"/></div><div className="workspace-activity-list">{recent.map(x=><div className="workspace-activity-item" key={x.id}><div className={'workspace-activity-icon '+x.type}>{x.type==='checkin'?<CheckCircle2 size={16}/>:x.type==='review'?<AlertTriangle size={16}/>:<HeartPulse size={16}/>}</div><div><b>{x.text}</b><span>{x.time}</span></div><em>{x.type==='review'?'Review':'Ready'}</em></div>)}</div></section>
+   <section className="workspace-side"><div className="card workspace-stats"><div className="cardhead"><div><h2>Quick Statistics</h2><p>Current demo workspace</p></div><BarChart3 size={18} className="mutedicon"/></div><div className="quickstat-grid"><div className="quickstat bluebg"><Users size={17}/><span>Total Personnel</span><b>{stats.total}</b></div><div className="quickstat greenbg"><HeartPulse size={17}/><span>Wellness Avg.</span><b>{stats.avg}%</b></div><div className="quickstat redbg"><AlertTriangle size={17}/><span>Active Alerts</span><b>{activeAlerts}</b></div><div className="quickstat purplebg"><Shield size={17}/><span>Attention Signals</span><b>{stats.elevated+stats.high}</b></div></div></div>
+    <div className="card workspace-chart"><div className="cardhead"><div><h2>Recent Charts</h2><p>Illustrative wellness trend</p></div><TrendingUp size={18} className="mutedicon"/></div><TrendChart personnel={personnel}/></div>
+   </section>
+  </div>
+  <div className="workspace-note"><LockKeyhole size={14}/><span>Secure • Confidential • Demo data only. Welfare signals support authorized human review and are not diagnoses.</span></div>
+ </div>;
+}
 
 function Personnel({personnel,onSelect}){
  const [q,setQ]=useState(''); const [unit,setUnit]=useState('All units');
