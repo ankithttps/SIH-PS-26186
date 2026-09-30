@@ -53,3 +53,18 @@
 .inputchips span{padding:5px 7px;border:1px solid #e1e6ec;background:#fff;border-radius:999px;font-size:8px;color:#596579;font-weight:700}
 .inputnote{display:flex;gap:5px;align-items:flex-start;margin-top:9px;color:#7a8492;font-size:8px;line-height:1.35}
 .inputnote svg{flex:none;color:#53667f}
+
+/* End-to-end demo flow */
+.demoflow{margin-bottom:15px}
+.flowcount{font-size:9px;font-weight:800;color:#5d718d;background:#f1f4f7;border:1px solid #e1e6ec;padding:5px 8px;border-radius:999px}
+.flowsteps{display:flex;padding:8px 18px 4px}
+.flowstep{position:relative;display:flex;align-items:center;gap:8px;flex:1;min-width:0}
+.flowcircle{width:27px;height:27px;border-radius:50%;border:1px solid #dfe5eb;background:#fff;display:flex;align-items:center;justify-content:center;flex:none;font-size:8px;font-weight:800;color:#8993a0}
+.flowstep.complete .flowcircle{background:#eef5f0;border-color:#b9d1bf;color:#5c8067}
+.flowstep b,.flowstep span{display:block}
+.flowstep b{font-size:9px;color:#354158}
+.flowstep span{font-size:8px;color:#8b94a1;margin-top:2px}
+.flowconnector{height:1px;background:#e2e6eb;flex:1;margin:0 7px}
+.flowconnector.complete{background:#b9d1bf}
+.flownote{display:flex;gap:6px;margin:8px 18px 16px;padding:9px;background:#f8fafb;border:1px solid #e7ebef;border-radius:8px;color:#788392;font-size:8px;line-height:1.35}
+@media(max-width:700px){.flowsteps{display:block;padding-top:10px}.flowstep{padding:5px 0}.flowconnector{width:1px;height:12px;margin:2px 0 2px 13px}.flowstep div:nth-child(2){flex:1}}
