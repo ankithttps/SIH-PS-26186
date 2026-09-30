@@ -89,6 +89,11 @@ class InterventionIn(BaseModel):
     name: str
     action: str
 
+class FollowupIn(BaseModel):
+    person_id: str
+    name: str
+    action: str
+
 class FollowupOutcomeIn(BaseModel):
     outcome: str
 
@@ -196,6 +201,24 @@ def create_intervention(data:InterventionIn):
     row=conn.execute("SELECT * FROM interventions WHERE id=?", (cur.lastrowid,)).fetchone()
     conn.close()
     return dict(row)
+
+@app.post("/api/followups")
+def create_followup(data:FollowupIn):
+    conn=connect()
+    cur=conn.execute(
+      "INSERT INTO followups(person_id,name,action,created_at) VALUES (?,?,?,?)",
+      (data.person_id,data.name,data.action,now()))
+    conn.commit()
+    row=conn.execute("SELECT * FROM followups WHERE id=?", (cur.lastrowid,)).fetchone()
+    conn.close()
+    return dict(row)
+
+@app.get("/api/followups")
+def list_followups():
+    conn=connect()
+    rows=[dict(r) for r in conn.execute("SELECT * FROM followups ORDER BY id DESC")]
+    conn.close()
+    return rows
 
 @app.post("/api/followups/{followup_id}/outcome")
 def followup_outcome(followup_id:int,data:FollowupOutcomeIn):
