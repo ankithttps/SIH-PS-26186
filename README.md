@@ -11,6 +11,10 @@ Prototype for **SIH Problem Statement 26186**: AI-Based Predictive Personnel Str
 - Demo risk-signal calculation
 - Personnel search + unit filtering
 - Personnel detail modal with duty, leave, wellness and review context
+- Predictive-style welfare risk engine using self-report + organizational context
+- Explainable top risk factors for human review
+- Early welfare alert workflow triggered by elevated/high demo signals
+- Human-led intervention guidance
 - Welfare intervention recommendations
 - Privacy & governance screen
 - Human-in-the-loop and welfare-first safeguards
