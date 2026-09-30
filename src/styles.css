@@ -68,3 +68,6 @@
 .flowconnector.complete{background:#b9d1bf}
 .flownote{display:flex;gap:6px;margin:8px 18px 16px;padding:9px;background:#f8fafb;border:1px solid #e7ebef;border-radius:8px;color:#788392;font-size:8px;line-height:1.35}
 @media(max-width:700px){.flowsteps{display:block;padding-top:10px}.flowstep{padding:5px 0}.flowconnector{width:1px;height:12px;margin:2px 0 2px 13px}.flowstep div:nth-child(2){flex:1}}
+
+
+.authscreen{min-height:100vh;background:#f4f6f9;display:flex;align-items:center;justify-content:center;padding:24px}.authcard{width:min(420px,100%);background:#fff;border:1px solid #e3e8ee;border-radius:16px;padding:32px;box-shadow:0 18px 45px rgba(22,36,59,.08);text-align:center}.authbrand{justify-content:center;margin-bottom:28px}.authicon{width:54px;height:54px;border-radius:14px;background:#eef2f6;color:#53667f;display:flex;align-items:center;justify-content:center;margin:0 auto 18px}.authcard h1{font-size:24px;letter-spacing:-.02em;color:#16243b;margin:0}.authcard>p{font-size:12px;line-height:1.6;color:#687487;margin:9px 0 22px}.authnote{display:flex;align-items:flex-start;justify-content:center;gap:6px;margin-top:13px;color:#8791a0;font-size:9px;line-height:1.4}.authnote svg{flex:none}@media(max-width:500px){.authcard{padding:25px 20px}}
