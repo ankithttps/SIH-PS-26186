@@ -45,7 +45,13 @@ class AppErrorBoundary extends React.Component{
 }
 
 const API_BASE='http://127.0.0.1:8000';
-async function fetchJson(path,options={}){const r=await fetch(`${API_BASE}${path}`,options);if(!r.ok)throw new Error(`API ${r.status}`);return r.json();}
+function getDemoRole(){return localStorage.getItem('rakshakwell_role')||'Welfare Officer';}
+async function fetchJson(path,options={}){
+ const headers={...(options.headers||{}),'X-Demo-Role':getDemoRole()};
+ const r=await fetch(`${API_BASE}${path}`,{...options,headers});
+ if(!r.ok)throw new Error(`API ${r.status}`);
+ return r.json();
+}
 function mapServerPersonnel(x,previous={}){const history=x.history||previous.history||[];return {...previous,...x,history,pattern:getPattern(history)};}
 const mapAlert=a=>({id:a.id,personId:a.person_id,name:a.name,risk:a.risk,reason:a.reason,time:a.created_at,status:a.status,reviewedBy:a.reviewed_by,reviewedAt:a.reviewed_at});
 const mapIntervention=x=>({id:x.id,personId:x.person_id,name:x.name,action:x.action,status:x.status,time:x.created_at});
@@ -59,7 +65,7 @@ function App(){
  const [securityEvents,setSecurityEvents]=useState([]);
  const [sessionMinutes,setSessionMinutes]=useState(30);
  const [mfaDemo,setMfaDemo]=useState(false);
- const [role,setRole]=useState('Welfare Officer');
+ const [role,setRole]=useState(()=>localStorage.getItem('rakshakwell_role')||'Welfare Officer');
  const [personnel,setPersonnel]=useState(initialPersonnel.map(x=>({...x,pattern:getPattern(x.history)})));
  const [backendStatus,setBackendStatus]=useState('checking');
  useEffect(()=>{let active=true;(async()=>{try{await fetchJson('/health');if(active)setBackendStatus('connected');}catch(error){if(active)setBackendStatus('offline');return;}try{const [people,aa,ii,ff,ae]=await Promise.all([fetchJson('/api/personnel'),fetchJson('/api/alerts'),fetchJson('/api/interventions'),fetchJson('/api/followups'),fetchJson('/api/audit-events')]);if(!active)return;setPersonnel(people.map(x=>mapServerPersonnel(x,initialPersonnel.find(p=>p.id===x.id))));setAlerts(aa.map(mapAlert));setInterventions(ii.map(mapIntervention));setFollowups(ff.map(mapFollowup));setSecurityEvents(ae.map(x=>({id:x.id,text:x.action,time:new Date(x.created_at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})})));}catch(error){console.warn('RakshakWell API data load failed:',error);}})();return()=>{active=false;};},[]);
