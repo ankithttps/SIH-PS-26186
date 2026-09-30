@@ -143,7 +143,7 @@ function App(){
   <div className="layout">
    <aside className={mobile?'sidebar open':'sidebar'}><div className="side-label">WORKSPACE</div>{nav.map(([key,label,Icon])=><button key={key} className={page===key?'nav active':'nav'} onClick={()=>{setPage(key);setSubmitted(false);setMobile(false)}}><Icon size={18}/>{label}</button>)}<div className="side-bottom"><div className="privacy-mini"><LockKeyhole size={16}/><div><b>Privacy first</b><small>Welfare use only</small></div></div><button className="logout" onClick={handleSignOut}><LogOut size={16}/> Sign out</button></div></aside>
    <main className="main">
-    {page==='dashboard'&&<Dashboard stats={stats} personnel={visiblePersonnel} role={role} onAssessment={()=>setPage('assessment')} onSelect={setSelected} onPersonnel={()=>setPage('personnel')} onDashboard={()=>setPage('dashboard')} demoMode={demoMode} setDemoMode={setDemoMode} alerts={alerts} onReviewAlert={async id=>{const alert=alerts.find(x=>x.id===id);logSecurity(`Alert review by ${role}`);try{const r=await fetch(`${API_BASE}/api/alerts/${id}/review`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({role})});if(!r.ok)throw new Error('Review API failed');setBackendStatus('connected');}catch{setBackendStatus('offline');}setAlerts(a=>a.map(x=>x.id===id?{...x,status:'Reviewed',reviewedBy:role,reviewedAt:'Just now'}:x));if(alert)setActivity(v=>[{id:Date.now(),type:'review',text:`${alert.name} alert reviewed by ${role}`,time:'Just now'},...v].slice(0,8));}} interventions={interventions} followups={followups} activity={activity} onIntervention={async(alert,action)=>{logSecurity(`Support action planned by ${role}`);try{const ir=await fetch(`${API_BASE}/api/interventions`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({person_id:alert.personId,name:alert.name,action})});if(!ir.ok)throw new Error('Intervention API failed');const savedIntervention=await ir.json();const fr=await fetch(`${API_BASE}/api/followups`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({person_id:alert.personId,name:alert.name,action})});if(!fr.ok)throw new Error('Follow-up API failed');const savedFollowup=await fr.json();setBackendStatus('connected');setInterventions(v=>[{id:savedIntervention.id,personId:savedIntervention.person_id,name:savedIntervention.name,action:savedIntervention.action,status:savedIntervention.status,time:savedIntervention.created_at},...v]);setFollowups(v=>[{id:savedFollowup.id,personId:savedFollowup.person_id,name:savedFollowup.name,action:savedFollowup.action,status:savedFollowup.status,outcome:savedFollowup.outcome,time:savedFollowup.created_at},...v]);setActivity(v=>[{id:Date.now(),type:'support',text:`${alert.name}: ${action} planned`,time:'Just now'},...v].slice(0,8));}catch{setBackendStatus('offline');}} onOutcome={async(id,outcome)=>{logSecurity(`Follow-up outcome recorded by ${role}`);const item=followups.find(x=>x.id===id);try{const r=await fetch(`${API_BASE}/api/followups/${id}/outcome`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({outcome})});if(!r.ok)throw new Error('Follow-up API failed');const saved=await r.json();setBackendStatus('connected');setFollowups(v=>v.map(x=>x.id===id?{...x,status:saved.status,outcome:saved.outcome}:x));}catch{setBackendStatus('offline');}if(item){setActivity(v=>[{id:Date.now(),type:'outcome',text:`${item.name} follow-up recorded: ${outcome}`,time:'Just now'},...v].slice(0,8));setPersonnel(v=>v.map(p=>{if(p.id!==item.personId)return p;const score=outcome==='Improved'?Math.min(100,p.wellness+5):outcome==='Stable'?p.wellness:Math.max(0,p.wellness-2);const [risk]=riskFromScore(score);const history=[...(p.history||[]),{date:'Follow-up',wellness:score,risk}].slice(-10);return {...p,wellness:score,risk,trend:[...p.trend.slice(1),score],history,pattern:getPattern(history),last:'Follow-up'};}));}}}/>}
+    {page==='dashboard'&&<Dashboard stats={stats} personnel={visiblePersonnel} role={role} onAssessment={()=>setPage('assessment')} onSelect={setSelected} onPersonnel={()=>setPage('personnel')} onDashboard={()=>setPage('dashboard')} demoMode={demoMode} setDemoMode={setDemoMode} alerts={alerts} onReviewAlert={reviewAlert} interventions={interventions} followups={followups} activity={activity} onIntervention={planIntervention} onOutcome={recordOutcome}/>}
     {page==='assessment'&&<Assessment form={form} setForm={setForm} submit={submit} submitted={submitted}/>}
     {page==='personnel'&&<Personnel personnel={personnel} onSelect={setSelected}/>}
     {page==='privacy'&&<Privacy role={role} onReset={resetWorkspace}/>}    {page==='security'&&<Security role={role} events={securityEvents} sessionMinutes={sessionMinutes} setSessionMinutes={setSessionMinutes} mfaDemo={mfaDemo} setMfaDemo={setMfaDemo}/>}
@@ -390,4 +390,52 @@ function Privacy({role,onReset}){
  return <div className="page"><div className="pagehead"><div><div className="eyebrow">GOVERNANCE</div><h1>Privacy & Access</h1><p>Privacy safeguards are part of the welfare workflow, not an afterthought.</p></div></div><div className="privacygrid"><div className="card"><h2>Current demo role</h2><div className="rolebig"><Shield size={23}/><div><b>{role}</b><span>Role-based access context</span></div></div><div className="perm"><CheckCircle2/> {permission}</div><div className="perm"><CheckCircle2/> Review recommendations</div><div className="perm"><CheckCircle2/> Support check-in workflow</div><div className="perm muted"><LockKeyhole/> Raw sensitive data restricted</div></div><div className="card"><h2>Protection principles</h2><div className="guard"><LockKeyhole/><div><b>Data minimization</b><span>Only relevant welfare and organizational indicators are used.</span></div></div><div className="guard"><Shield/><div><b>Role-based access</b><span>Access is shown by role in this demo; production access would require server-side authorization.</span></div></div><div className="guard"><Users/><div><b>Human-in-the-loop</b><span>AI signals support review; they do not autonomously decide interventions.</span></div></div><div className="guard"><HeartPulse/><div><b>Welfare-first purpose</b><span>The system is intended for support rather than disciplinary action.</span></div></div></div></div><div className="card democontrol"><div className="demohead"><div><h2>Demo controls</h2><p>Reset the workspace before a fresh SIH walkthrough.</p></div><SlidersHorizontal size={18} className="mutedicon"/></div><div className="demobody"><div><b>Reset demo workspace</b><span>Clears alerts, interventions, follow-ups and timeline activity, then restores the original sample data.</span></div><button className="softbtn resetbtn" onClick={onReset}>Reset demo</button></div><div className="demonote"><Info size={14}/> This control only resets local demo state. It does not delete or modify real personnel data.</div></div></div>;
 }
 
-createRoot(document.getElementById('root')).render(<AppErrorBoundary><App/></AppErrorBoundary>);
+createRoot(document.getElementById('root')).render(<AppErrorBoundary><App/></AppErrorBoundary>)
+ async function reviewAlert(id){
+  const alert=alerts.find(x=>x.id===id);
+  logSecurity(`Alert review by ${role}`);
+  try{
+   const r=await fetch(`${API_BASE}/api/alerts/${id}/review`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({role})});
+   if(!r.ok)throw new Error('Review API failed');
+   setBackendStatus('connected');
+  }catch{setBackendStatus('offline');}
+  setAlerts(a=>a.map(x=>x.id===id?{...x,status:'Reviewed',reviewedBy:role,reviewedAt:'Just now'}:x));
+  if(alert)setActivity(v=>[{id:Date.now(),type:'review',text:`${alert.name} alert reviewed by ${role}`,time:'Just now'},...v].slice(0,8));
+ }
+ async function planIntervention(alert,action){
+  logSecurity(`Support action planned by ${role}`);
+  try{
+   const ir=await fetch(`${API_BASE}/api/interventions`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({person_id:alert.personId,name:alert.name,action})});
+   if(!ir.ok)throw new Error('Intervention API failed');
+   const savedIntervention=await ir.json();
+   const fr=await fetch(`${API_BASE}/api/followups`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({person_id:alert.personId,name:alert.name,action})});
+   if(!fr.ok)throw new Error('Follow-up API failed');
+   const savedFollowup=await fr.json();
+   setBackendStatus('connected');
+   setInterventions(v=>[{id:savedIntervention.id,personId:savedIntervention.person_id,name:savedIntervention.name,action:savedIntervention.action,status:savedIntervention.status,time:savedIntervention.created_at},...v]);
+   setFollowups(v=>[{id:savedFollowup.id,personId:savedFollowup.person_id,name:savedFollowup.name,action:savedFollowup.action,status:savedFollowup.status,outcome:savedFollowup.outcome,time:savedFollowup.created_at},...v]);
+   setActivity(v=>[{id:Date.now(),type:'support',text:`${alert.name}: ${action} planned`,time:'Just now'},...v].slice(0,8));
+  }catch{setBackendStatus('offline');}
+ }
+ async function recordOutcome(id,outcome){
+  logSecurity(`Follow-up outcome recorded by ${role}`);
+  const item=followups.find(x=>x.id===id);
+  try{
+   const r=await fetch(`${API_BASE}/api/followups/${id}/outcome`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({outcome})});
+   if(!r.ok)throw new Error('Follow-up API failed');
+   const saved=await r.json();
+   setBackendStatus('connected');
+   setFollowups(v=>v.map(x=>x.id===id?{...x,status:saved.status,outcome:saved.outcome}:x));
+  }catch{setBackendStatus('offline');}
+  if(item){
+   setActivity(v=>[{id:Date.now(),type:'outcome',text:`${item.name} follow-up recorded: ${outcome}`,time:'Just now'},...v].slice(0,8));
+   setPersonnel(v=>v.map(p=>{
+    if(p.id!==item.personId)return p;
+    const score=outcome==='Improved'?Math.min(100,p.wellness+5):outcome==='Stable'?p.wellness:Math.max(0,p.wellness-2);
+    const [risk]=riskFromScore(score);
+    const history=[...(p.history||[]),{date:'Follow-up',wellness:score,risk}].slice(-10);
+    return {...p,wellness:score,risk,trend:[...p.trend.slice(1),score],history,pattern:getPattern(history),last:'Follow-up'};
+   }));
+  }
+ }
+;
