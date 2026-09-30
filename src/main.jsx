@@ -46,8 +46,10 @@ class AppErrorBoundary extends React.Component{
 
 const API_BASE='http://127.0.0.1:8000';
 function getDemoRole(){return localStorage.getItem('rakshakwell_role')||'Welfare Officer';}
+function getToken(){return localStorage.getItem('rakshakwell_token')||'';}
 async function fetchJson(path,options={}){
  const headers={...(options.headers||{}),'X-Demo-Role':getDemoRole()};
+ if(getToken())headers.Authorization=`Bearer ${getToken()}`;
  const r=await fetch(`${API_BASE}${path}`,{...options,headers});
  if(!r.ok)throw new Error(`API ${r.status}`);
  return r.json();
@@ -60,7 +62,10 @@ const mapFollowup=x=>({id:x.id,personId:x.person_id,name:x.name,action:x.action,
 function App(){
  const [page,setPage]=useState('dashboard');
  const [demoMode,setDemoMode]=useState(false);
- const [signedIn,setSignedIn]=useState(()=>localStorage.getItem('rakshakwell_signed_in')!=='false');
+ const [signedIn,setSignedIn]=useState(()=>Boolean(localStorage.getItem('rakshakwell_token')));
+ const [loginRole,setLoginRole]=useState(()=>localStorage.getItem('rakshakwell_role')||'Welfare Officer');
+ const [loginPassword,setLoginPassword]=useState('');
+ const [loginError,setLoginError]=useState('');
  const [mobile,setMobile]=useState(false);
  const [securityEvents,setSecurityEvents]=useState([]);
  const [sessionMinutes,setSessionMinutes]=useState(30);
@@ -68,7 +73,7 @@ function App(){
  const [role,setRole]=useState(()=>localStorage.getItem('rakshakwell_role')||'Welfare Officer');
  const [personnel,setPersonnel]=useState(initialPersonnel.map(x=>({...x,pattern:getPattern(x.history)})));
  const [backendStatus,setBackendStatus]=useState('checking');
- useEffect(()=>{let active=true;(async()=>{try{await fetchJson('/health');if(active)setBackendStatus('connected');}catch(error){if(active)setBackendStatus('offline');return;}try{const [people,aa,ii,ff,ae]=await Promise.all([fetchJson('/api/personnel'),fetchJson('/api/alerts'),fetchJson('/api/interventions'),fetchJson('/api/followups'),fetchJson('/api/audit-events')]);if(!active)return;setPersonnel(people.map(x=>mapServerPersonnel(x,initialPersonnel.find(p=>p.id===x.id))));setAlerts(aa.map(mapAlert));setInterventions(ii.map(mapIntervention));setFollowups(ff.map(mapFollowup));setSecurityEvents(ae.map(x=>({id:x.id,text:x.action,time:new Date(x.created_at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})})));}catch(error){console.warn('RakshakWell API data load failed:',error);}})();return()=>{active=false;};},[]);
+ useEffect(()=>{if(!signedIn)return;let active=true;(async()=>{try{await fetchJson('/health');if(active)setBackendStatus('connected');}catch(error){if(active)setBackendStatus('offline');return;}try{const [people,aa,ii,ff,ae]=await Promise.all([fetchJson('/api/personnel'),fetchJson('/api/alerts'),fetchJson('/api/interventions'),fetchJson('/api/followups'),fetchJson('/api/audit-events')]);if(!active)return;setPersonnel(people.map(x=>mapServerPersonnel(x,initialPersonnel.find(p=>p.id===x.id))));setAlerts(aa.map(mapAlert));setInterventions(ii.map(mapIntervention));setFollowups(ff.map(mapFollowup));setSecurityEvents(ae.map(x=>({id:x.id,text:x.action,time:new Date(x.created_at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})})));}catch(error){console.warn('RakshakWell API data load failed:',error);}})();return()=>{active=false;};},[]);
  const [submitted,setSubmitted]=useState(false);
  const [selected,setSelected]=useState(null); const [alerts,setAlerts]=useState([]); const [interventions,setInterventions]=useState([]); const [followups,setFollowups]=useState([]); const [activity,setActivity]=useState([]);
  const [form,setForm]=useState({sleep:3,mood:3,energy:3,workload:3,concern:''});
@@ -76,27 +81,30 @@ function App(){
  const stats=useMemo(()=>({total:visiblePersonnel.length,elevated:visiblePersonnel.filter(x=>x.risk==='Elevated').length,high:visiblePersonnel.filter(x=>x.risk==='High').length,avg:Math.round(visiblePersonnel.reduce((a,b)=>a+b.wellness,0)/visiblePersonnel.length),checkins:Math.round(visiblePersonnel.reduce((a,b)=>a+b.checkins,0)/visiblePersonnel.length)}),[visiblePersonnel]);
  const nav=role==='Personnel'?[['dashboard','Dashboard',LayoutDashboard],['assessment','Wellness Check-in',ClipboardCheck],['workspace','Workspace',FolderOpen],['security','Security Center',Shield],['privacy','Privacy & Access',LockKeyhole]]:role==='Commander'?[['dashboard','Command Dashboard',LayoutDashboard],['workspace','Unit Welfare',BarChart3],['privacy','Privacy & Access',LockKeyhole],['security','Security Center',Shield]]:[['dashboard','Dashboard',LayoutDashboard],['assessment','Wellness Check-in',ClipboardCheck],['personnel','Personnel',Users],['workspace','Workspace',FolderOpen],['privacy','Privacy & Access',LockKeyhole],['security','Security Center',Shield]];
  function logSecurity(text){setSecurityEvents(v=>[{id:Date.now(),text,time:'Just now'},...v].slice(0,10));fetchJson('/api/audit-events',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({role,action:text})}).then(()=>setBackendStatus('connected')).catch(()=>setBackendStatus('offline'));}
- function handleSignOut(){
-   logSecurity(`Sign out by ${role}`);
+ async function handleSignOut(){
+   try{await fetchJson('/api/auth/logout',{method:'POST'});}catch{}
+   localStorage.removeItem('rakshakwell_token');
    localStorage.setItem('rakshakwell_signed_in','false');
-   setSignedIn(false);
-   setMobile(false);
-   setSelected(null);
+   setSignedIn(false);setMobile(false);setSelected(null);
  }
- function handleSignIn(){
-   logSecurity('Demo sign in completed');
-   localStorage.setItem('rakshakwell_signed_in','true');
-   setSignedIn(true);
-   setPage('dashboard');
+ async function handleSignIn(){
+   try{
+     setLoginError('');
+     const data=await fetchJson('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:loginRole==='Welfare Officer'?'welfare.demo':loginRole==='Commander'?'commander.demo':'personnel.demo',password:loginPassword})});
+     localStorage.setItem('rakshakwell_token',data.token);
+     localStorage.setItem('rakshakwell_role',data.role);
+     localStorage.setItem('rakshakwell_signed_in','true');
+     setRole(data.role);setSignedIn(true);setPage('dashboard');setLoginPassword('');
+   }catch(error){setLoginError('Invalid demo credentials');}
  }
  async function resetWorkspace(){try{const data=await fetchJson('/api/demo/reset',{method:'POST'});setBackendStatus('connected');setPage('dashboard');setMobile(false);setSubmitted(false);setSelected(null);setForm({sleep:3,mood:3,energy:3,workload:3,concern:''});setAlerts((data.alerts||[]).map(mapAlert));setInterventions((data.interventions||[]).map(mapIntervention));setFollowups((data.followups||[]).map(mapFollowup));setActivity([]);setPersonnel((data.personnel||[]).map(x=>mapServerPersonnel(x,initialPersonnel.find(p=>p.id===x.id))));}catch(error){console.error('Demo reset failed:',error);setBackendStatus('offline');}}
  async function submit(){const current=personnel[0];try{await fetchJson('/api/checkins',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({person_id:current.id,sleep:form.sleep,mood:form.mood,energy:form.energy,workload:form.workload,concern:form.concern})});setBackendStatus('connected');setSubmitted(true);const [people,aa]=await Promise.all([fetchJson('/api/personnel'),fetchJson('/api/alerts')]);setPersonnel(people.map(x=>mapServerPersonnel(x,personnel.find(p=>p.id===x.id))));setAlerts(aa.map(mapAlert));setActivity(v=>[{id:Date.now(),type:'checkin',text:current.name+' completed a confidential wellness check-in',time:'Just now'},...v].slice(0,8));}catch{setBackendStatus('offline');setSubmitted(false);}}
- if(!signedIn) return <div className="authscreen"><div className="authcard"><div className="brand authbrand"><div className="brandmark"><Shield size={21}/></div><div><b>RakshakWell</b><span>Personnel Welfare Intelligence</span></div></div><div className="authicon"><LockKeyhole size={25}/></div><h1>Session signed out</h1><p>Your demo session has been signed out. Sign in again to continue the welfare workspace.</p><button className="primary wide" onClick={handleSignIn}><Shield size={17}/> Sign in</button><div className="authnote"><LockKeyhole size={14}/> Demo authentication only — no real credentials are stored.</div></div></div>;
+ if(!signedIn) return <div className="authscreen"><div className="authcard"><div className="brand authbrand"><div className="brandmark"><Shield size={21}/></div><div><b>RakshakWell</b><span>Personnel Welfare Intelligence</span></div></div><div className="authicon"><LockKeyhole size={25}/></div><h1>Secure demo sign in</h1><p>Choose an authorized demo role and enter its demo password.</p><label className="fieldlabel">Role</label><select value={loginRole} onChange={e=>setLoginRole(e.target.value)}><option>Welfare Officer</option><option>Commander</option><option>Personnel</option></select><label className="fieldlabel">Password</label><input type="password" value={loginPassword} onChange={e=>setLoginPassword(e.target.value)} placeholder="Enter demo password" onKeyDown={e=>{if(e.key==='Enter')handleSignIn()}}/>{loginError&&<div className="autherror">{loginError}</div>}<button className="primary wide" onClick={handleSignIn}><Shield size={17}/> Sign in</button><div className="authnote"><LockKeyhole size={14}/> Demo credentials only. Production would use real identity, MFA and secure password storage.</div></div></div>;
  return <div className="app">
   <header className="topbar">
    <button className="iconbtn menu" onClick={()=>setMobile(!mobile)}>{mobile?<X/>:<Menu/>}</button>
    <div className="brand"><div className="brandmark"><Shield size={21}/></div><div><b>RakshakWell</b><span>Personnel Welfare Intelligence</span></div></div>
-   <div className="topright"><span className={`backendbadge ${backendStatus}`}>API {backendStatus}</span><select value={role} onChange={e=>{const next=e.target.value;setRole(next);localStorage.setItem('rakshakwell_role',next);setSubmitted(false);if(next==='Personnel')setPage('dashboard');}}><option>Welfare Officer</option><option>Commander</option><option>Personnel</option></select><div className="avatar">{role==='Welfare Officer'?'WO':role==='Commander'?'CO':'ME'}</div></div>
+   <div className="topright"><span className={`backendbadge ${backendStatus}`}>API {backendStatus}</span><select value={role} disabled title="Role is fixed by the authenticated session"><option>Welfare Officer</option><option>Commander</option><option>Personnel</option></select><div className="avatar">{role==='Welfare Officer'?'WO':role==='Commander'?'CO':'ME'}</div></div>
   </header>
   <div className="layout">
    <aside className={mobile?'sidebar open':'sidebar'}><div className="side-label">WORKSPACE</div>{nav.map(([key,label,Icon])=><button key={key} className={page===key?'nav active':'nav'} onClick={()=>{setPage(key);setSubmitted(false);setMobile(false)}}><Icon size={18}/>{label}</button>)}<div className="side-bottom"><div className="privacy-mini"><LockKeyhole size={16}/><div><b>Privacy first</b><small>Welfare use only</small></div></div><button className="logout" onClick={handleSignOut}><LogOut size={16}/> Sign out</button></div></aside>
