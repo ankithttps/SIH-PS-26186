@@ -45,6 +45,11 @@ class AppErrorBoundary extends React.Component{
 }
 
 const API_BASE='http://127.0.0.1:8000';
+async function fetchJson(path,options={}){const r=await fetch(`${API_BASE}${path}`,options);if(!r.ok)throw new Error(`API ${r.status}`);return r.json();}
+function mapServerPersonnel(x,previous={}){const history=x.history||previous.history||[];return {...previous,...x,history,pattern:getPattern(history)};}
+const mapAlert=a=>({id:a.id,personId:a.person_id,name:a.name,risk:a.risk,reason:a.reason,time:a.created_at,status:a.status,reviewedBy:a.reviewed_by,reviewedAt:a.reviewed_at});
+const mapIntervention=x=>({id:x.id,personId:x.person_id,name:x.name,action:x.action,status:x.status,time:x.created_at});
+const mapFollowup=x=>({id:x.id,personId:x.person_id,name:x.name,action:x.action,status:x.status,outcome:x.outcome,time:x.created_at});
 
 function App(){
  const [page,setPage]=useState('dashboard');
@@ -57,27 +62,7 @@ function App(){
  const [role,setRole]=useState('Welfare Officer');
  const [personnel,setPersonnel]=useState(initialPersonnel.map(x=>({...x,pattern:getPattern(x.history)})));
  const [backendStatus,setBackendStatus]=useState('checking');
- useEffect(()=>{
-  let active=true;
-  fetch(`${API_BASE}/health`).then(r=>{if(!r.ok)throw new Error('Backend unavailable');return r.json();}).then(()=>{if(active)setBackendStatus('connected');}).catch(()=>{if(active)setBackendStatus('offline');});
-  Promise.all([
-   fetch(`${API_BASE}/api/personnel`),
-   fetch(`${API_BASE}/api/alerts`),
-   fetch(`${API_BASE}/api/interventions`),
-   fetch(`${API_BASE}/api/followups`)
-  ]).then(async ([pr,ar,ir,fr])=>{
-   if(!pr.ok||!ar.ok||!ir.ok||!fr.ok)throw new Error('Backend data unavailable');
-   const people=await pr.json();
-   const serverAlerts=await ar.json();
-   const serverInterventions=await ir.json();
-   const serverFollowups=await fr.json();
-   if(active&&Array.isArray(people)&&people.length) setPersonnel(prev=>prev.map(p=>{const s=people.find(x=>x.id===p.id);return s?{...p,...s}:p;}));
-   if(active&&Array.isArray(serverAlerts)) setAlerts(serverAlerts.map(a=>({id:a.id,personId:a.person_id,name:a.name,risk:a.risk,reason:a.reason,time:a.created_at,status:a.status,reviewedBy:a.reviewed_by,reviewedAt:a.reviewed_at})));
-   if(active&&Array.isArray(serverInterventions)) setInterventions(serverInterventions.map(x=>({id:x.id,personId:x.person_id,name:x.name,action:x.action,status:x.status,time:x.created_at})));
-   if(active&&Array.isArray(serverFollowups)) setFollowups(serverFollowups.map(x=>({id:x.id,personId:x.person_id,name:x.name,action:x.action,status:x.status,outcome:x.outcome,time:x.created_at})));
-  }).catch(()=>{});
-   return ()=>{active=false;};
- },[]);
+ useEffect(()=>{let active=true;(async()=>{try{await fetchJson('/health');if(active)setBackendStatus('connected');const [people,aa,ii,ff]=await Promise.all([fetchJson('/api/personnel'),fetchJson('/api/alerts'),fetchJson('/api/interventions'),fetchJson('/api/followups')]);if(!active)return;setPersonnel(people.map(x=>mapServerPersonnel(x,initialPersonnel.find(p=>p.id===x.id))));setAlerts(aa.map(mapAlert));setInterventions(ii.map(mapIntervention));setFollowups(ff.map(mapFollowup));}catch{if(active)setBackendStatus('offline');}})();return()=>{active=false;};},[]);
  const [submitted,setSubmitted]=useState(false);
  const [selected,setSelected]=useState(null); const [alerts,setAlerts]=useState([]); const [interventions,setInterventions]=useState([]); const [followups,setFollowups]=useState([]); const [activity,setActivity]=useState([]);
  const [form,setForm]=useState({sleep:3,mood:3,energy:3,workload:3,concern:''});
@@ -98,41 +83,8 @@ function App(){
    setSignedIn(true);
    setPage('dashboard');
  }
- function resetWorkspace(){
-   setPage('dashboard');
-   setMobile(false);
-   setSubmitted(false);
-   setSelected(null);
-   setPersonnel(initialPersonnel.map(x=>({...x,pattern:getPattern(x.history)})));
-   setAlerts([]);
-   setInterventions([]);
-   setFollowups([]);
-   setActivity([]);
-   setForm({sleep:3,mood:3,energy:3,workload:3,concern:''});
- }
- async function submit(){
-   const current=personnel[0];
-   const result=calculateRisk({...form,duty:current.duty,leave:current.leave,deployment:current.deployment});
-   try{
-    const response=await fetch(`${API_BASE}/api/checkins`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({person_id:current.id,sleep:form.sleep,mood:form.mood,energy:form.energy,workload:form.workload,concern:form.concern})});
-    if(!response.ok)throw new Error('Check-in API failed');
-    setBackendStatus('connected');
-    const saved=await response.json();
-    if(saved.alert_id){
-      const alertResponse=await fetch(`${API_BASE}/api/alerts`);
-      if(alertResponse.ok){
-        const serverAlerts=await alertResponse.json();
-        setAlerts(serverAlerts.map(a=>({id:a.id,personId:a.person_id,name:a.name,risk:a.risk,reason:a.reason,time:a.created_at,status:a.status,reviewedBy:a.reviewed_by,reviewedAt:a.reviewed_at})));
-      }
-    }
-   }catch{setBackendStatus('offline');}
-   const nextHistory=[...(current.history||[]),{date:'Just now',wellness:result.wellness,risk:result.risk}].slice(-10);
-   const pattern=getPattern(nextHistory);
-   setSubmitted(true);
-   setActivity(v=>[{id:Date.now(),type:'checkin',text:`${current.name} completed a confidential wellness check-in`,time:'Just now'},...v].slice(0,8));
-   setPersonnel(p=>p.map((x,i)=>i===0?{...x,wellness:result.wellness,risk:result.risk,last:'Just now',trend:[...x.trend.slice(1),result.wellness],checkins:x.checkins+1,riskFactors:result.factors,history:nextHistory,pattern}:x));
-   if(result.risk!=='Low'||pattern.key==='rising'||pattern.key==='persistent') setAlerts(a=>[{id:Date.now(),personId:current.id,name:current.name,risk:result.risk,reason:pattern.key==='rising'||pattern.key==='persistent'?pattern.type:(result.factors[0]?.label||'Wellness signal'),time:'Just now',status:'Open'},...a].slice(0,4));
- }
+ function resetWorkspace(){setPage('dashboard');setMobile(false);setSubmitted(false);setSelected(null);setForm({sleep:3,mood:3,energy:3,workload:3,concern:''});setAlerts([]);setInterventions([]);setFollowups([]);setActivity([]);setPersonnel(initialPersonnel.map(x=>({...x,pattern:getPattern(x.history)})));}
+ async function submit(){const current=personnel[0];try{await fetchJson('/api/checkins',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({person_id:current.id,sleep:form.sleep,mood:form.mood,energy:form.energy,workload:form.workload,concern:form.concern})});setBackendStatus('connected');setSubmitted(true);const [people,aa]=await Promise.all([fetchJson('/api/personnel'),fetchJson('/api/alerts')]);setPersonnel(people.map(x=>mapServerPersonnel(x,personnel.find(p=>p.id===x.id))));setAlerts(aa.map(mapAlert));setActivity(v=>[{id:Date.now(),type:'checkin',text:current.name+' completed a confidential wellness check-in',time:'Just now'},...v].slice(0,8));}catch{setBackendStatus('offline');setSubmitted(false);}}
  if(!signedIn) return <div className="authscreen"><div className="authcard"><div className="brand authbrand"><div className="brandmark"><Shield size={21}/></div><div><b>RakshakWell</b><span>Personnel Welfare Intelligence</span></div></div><div className="authicon"><LockKeyhole size={25}/></div><h1>Session signed out</h1><p>Your demo session has been signed out. Sign in again to continue the welfare workspace.</p><button className="primary wide" onClick={handleSignIn}><Shield size={17}/> Sign in</button><div className="authnote"><LockKeyhole size={14}/> Demo authentication only — no real credentials are stored.</div></div></div>;
  return <div className="app">
   <header className="topbar">
