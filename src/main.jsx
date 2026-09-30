@@ -29,6 +29,7 @@ function calculateRisk({sleep,mood,energy,workload,duty,leave,deployment}){
 }
 function App(){
  const [page,setPage]=useState('dashboard');
+ const [signedIn,setSignedIn]=useState(true);
  const [mobile,setMobile]=useState(false);
  const [role,setRole]=useState('Welfare Officer');
  const [personnel,setPersonnel]=useState(initialPersonnel.map(x=>({...x,pattern:getPattern(x.history)})));
@@ -38,6 +39,15 @@ function App(){
  const visiblePersonnel=role==='Personnel'?[personnel[0]]:personnel;
  const stats=useMemo(()=>({total:visiblePersonnel.length,elevated:visiblePersonnel.filter(x=>x.risk==='Elevated').length,high:visiblePersonnel.filter(x=>x.risk==='High').length,avg:Math.round(visiblePersonnel.reduce((a,b)=>a+b.wellness,0)/visiblePersonnel.length),checkins:Math.round(visiblePersonnel.reduce((a,b)=>a+b.checkins,0)/visiblePersonnel.length)}),[visiblePersonnel]);
  const nav=role==='Personnel'?[['dashboard','Dashboard',LayoutDashboard],['assessment','Wellness Check-in',ClipboardCheck],['privacy','Privacy & Access',LockKeyhole]]:[['dashboard','Dashboard',LayoutDashboard],['assessment','Wellness Check-in',ClipboardCheck],['personnel','Personnel',Users],['privacy','Privacy & Access',LockKeyhole]];
+ function handleSignOut(){
+   setSignedIn(false);
+   setMobile(false);
+   setSelected(null);
+ }
+ function handleSignIn(){
+   setSignedIn(true);
+   setPage('dashboard');
+ }
  function resetWorkspace(){
    setPage('dashboard');
    setMobile(false);
@@ -60,6 +70,7 @@ function App(){
    setPersonnel(p=>p.map((x,i)=>i===0?{...x,wellness:result.wellness,risk:result.risk,last:'Just now',trend:[...x.trend.slice(1),result.wellness],checkins:x.checkins+1,riskFactors:result.factors,history:nextHistory,pattern}:x));
    if(result.risk!=='Low'||pattern.key==='rising'||pattern.key==='persistent') setAlerts(a=>[{id:Date.now(),personId:current.id,name:current.name,risk:result.risk,reason:pattern.key==='rising'||pattern.key==='persistent'?pattern.type:(result.factors[0]?.label||'Wellness signal'),time:'Just now',status:'Open'},...a].slice(0,4));
  }
+ if(!signedIn) return <div className="authscreen"><div className="authcard"><div className="brand authbrand"><div className="brandmark"><Shield size={21}/></div><div><b>RakshakWell</b><span>Personnel Welfare Intelligence</span></div></div><div className="authicon"><LockKeyhole size={25}/></div><h1>Session signed out</h1><p>Your demo session has been signed out. Sign in again to continue the welfare workspace.</p><button className="primary wide" onClick={handleSignIn}><Shield size={17}/> Sign in</button><div className="authnote"><LockKeyhole size={14}/> Demo authentication only — no real credentials are stored.</div></div></div>;
  return <div className="app">
   <header className="topbar">
    <button className="iconbtn menu" onClick={()=>setMobile(!mobile)}>{mobile?<X/>:<Menu/>}</button>
@@ -67,7 +78,7 @@ function App(){
    <div className="topright"><select value={role} onChange={e=>{const next=e.target.value;setRole(next);setSubmitted(false);if(next==='Personnel')setPage('dashboard');}}><option>Welfare Officer</option><option>Commander</option><option>Personnel</option></select><div className="avatar">{role==='Welfare Officer'?'WO':role==='Commander'?'CO':'ME'}</div></div>
   </header>
   <div className="layout">
-   <aside className={mobile?'sidebar open':'sidebar'}><div className="side-label">WORKSPACE</div>{nav.map(([key,label,Icon])=><button key={key} className={page===key?'nav active':'nav'} onClick={()=>{setPage(key);setSubmitted(false);setMobile(false)}}><Icon size={18}/>{label}</button>)}<div className="side-bottom"><div className="privacy-mini"><LockKeyhole size={16}/><div><b>Privacy first</b><small>Welfare use only</small></div></div><button className="logout"><LogOut size={16}/> Sign out</button></div></aside>
+   <aside className={mobile?'sidebar open':'sidebar'}><div className="side-label">WORKSPACE</div>{nav.map(([key,label,Icon])=><button key={key} className={page===key?'nav active':'nav'} onClick={()=>{setPage(key);setSubmitted(false);setMobile(false)}}><Icon size={18}/>{label}</button>)}<div className="side-bottom"><div className="privacy-mini"><LockKeyhole size={16}/><div><b>Privacy first</b><small>Welfare use only</small></div></div><button className="logout" onClick={handleSignOut}><LogOut size={16}/> Sign out</button></div></aside>
    <main className="main">
     {page==='dashboard'&&<Dashboard stats={stats} personnel={visiblePersonnel} role={role} onAssessment={()=>setPage('assessment')} onSelect={setSelected} onPersonnel={()=>setPage('personnel')} alerts={alerts} onReviewAlert={id=>{const alert=alerts.find(x=>x.id===id);setAlerts(a=>a.map(x=>x.id===id?{...x,status:'Reviewed',reviewedBy:role,reviewedAt:'Just now'}:x));if(alert)setActivity(v=>[{id:Date.now(),type:'review',text:`${alert.name} alert reviewed by ${role}`,time:'Just now'},...v].slice(0,8));}} interventions={interventions} followups={followups} activity={activity} onIntervention={(alert,action)=>{const id=Date.now();setInterventions(v=>[{id,personId:alert.personId,name:alert.name,action,status:'Planned',time:'Just now'},...v]);setFollowups(v=>[{id,personId:alert.personId,name:alert.name,action,status:'Pending',outcome:'Awaiting follow-up',time:'Just now'},...v]);setActivity(v=>[{id:Date.now(),type:'support',text:`${alert.name}: ${action} planned`,time:'Just now'},...v].slice(0,8));}} onOutcome={(id,outcome)=>{const item=followups.find(x=>x.id===id);setFollowups(v=>v.map(x=>x.id===id?{...x,status:'Completed',outcome}:x));if(item){setActivity(v=>[{id:Date.now(),type:'outcome',text:`${item.name} follow-up recorded: ${outcome}`,time:'Just now'},...v].slice(0,8));setPersonnel(v=>v.map(p=>{if(p.id!==item.personId)return p;const score=outcome==='Improved'?Math.min(100,p.wellness+5):outcome==='Stable'?p.wellness:Math.max(0,p.wellness-2);const [risk]=riskFromScore(score);const history=[...(p.history||[]),{date:'Follow-up',wellness:score,risk}].slice(-10);return {...p,wellness:score,risk,trend:[...p.trend.slice(1),score],history,pattern:getPattern(history),last:'Follow-up'};}));}}}/>}
     {page==='assessment'&&<Assessment form={form} setForm={setForm} submit={submit} submitted={submitted}/>}
