@@ -285,3 +285,43 @@ th{background:#f1f6fb;color:#71839a}
 @media(max-width:600px){.securitygrid{grid-template-columns:1fr}.securityflow{justify-content:flex-start}.securityflow svg{transform:rotate(90deg)}}
 
 .securitysettings{padding:0 18px 18px}.securitysettings label{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:10px;font-weight:800;color:#33445d;padding:10px 0;border-bottom:1px solid #edf1f5}.securitysettings select{border:1px solid #d6e2ee;background:#f8fbff;border-radius:7px;padding:6px 8px;font-size:9px;color:#4d6179}.settingrow{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-top:12px}.settingrow b,.settingrow span{display:block}.settingrow b{font-size:10px;color:#33445d}.settingrow span{font-size:8px;color:#8490a0;margin-top:3px;line-height:1.4}.toggle{border:1px solid #d8e2ec;background:#f4f7fa;color:#68788c;border-radius:999px;padding:6px 10px;font-size:8px;font-weight:800;cursor:pointer}.toggle.on{background:#e5f6ed;border-color:#b9ddc8;color:#26764d}.securityevents{border-top:1px solid #edf1f5}.securityevent{display:flex;align-items:flex-start;gap:9px;padding:11px 18px;border-bottom:1px solid #edf1f5}.securityevent>svg{color:#2563eb;margin-top:1px;flex:none}.securityevent b,.securityevent span{display:block}.securityevent b{font-size:9px;color:#30435e}.securityevent span{font-size:8px;color:#8a95a3;margin-top:2px}
+
+
+/* Explainable Risk + What-if Simulator */
+.whatifcard{margin:0 0 15px;background:linear-gradient(145deg,#ffffff,#f7fbff);overflow:hidden}
+.simpill{display:flex;align-items:center;gap:5px;font-size:8px;font-weight:800;color:#2f6db7;background:#eaf3ff;border:1px solid #d0e3f8;padding:5px 8px;border-radius:999px}
+.simgrid{display:grid;grid-template-columns:1.05fr .95fr;border-top:1px solid #edf1f5}
+.simcontrols{padding:17px 18px;border-right:1px solid #edf1f5}
+.simselect{display:block}
+.simselect>span{display:block;font-size:9px;font-weight:800;color:#52637a;margin-bottom:6px}
+.simselect select{width:100%;border:1px solid #d5e1ec;background:#f8fbff;border-radius:8px;padding:9px 10px;font-size:10px;color:#30445f;outline:none}
+.simnote{display:flex;gap:6px;align-items:flex-start;margin:11px 0 14px;padding:9px;background:#f1f7ff;border:1px solid #d9e7f7;border-radius:8px;color:#60758c;font-size:8px;line-height:1.4}
+.simnote svg{flex:none;color:#3478df;margin-top:1px}
+.simrange{display:block;padding:10px 0;border-top:1px solid #edf1f5}
+.simrange>div:first-child{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.simrange b{font-size:9px;color:#34465e}
+.simrange strong{font-size:10px;color:#2563eb}
+.simrange input{width:100%;margin:9px 0 2px;accent-color:#2563eb}
+.simticks{display:flex;justify-content:space-between!important;color:#94a0af;font-size:7px}
+.simresult{padding:17px 18px;background:linear-gradient(145deg,#f8fbff,#eef6ff)}
+.simscorehead{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.simscorehead>div{flex:1;padding:11px 12px;background:#fff;border:1px solid #dce7f2;border-radius:10px}
+.simscorehead span,.simscorehead b{display:block}
+.simscorehead span{font-size:8px;color:#7d8998}
+.simscorehead b{font-size:22px;color:#18304f;margin-top:3px}
+.simscorehead>svg{color:#6d85a1;flex:none}
+.simmeter{height:8px;background:#e2eaf3;border-radius:999px;overflow:hidden;margin:13px 0 8px}
+.simmeter i{display:block;height:100%;background:linear-gradient(90deg,#f59e0b,#60a5fa);border-radius:999px;transition:width .2s ease}
+.simchange{display:flex;align-items:center;gap:5px;color:#54708e;font-size:9px;margin-bottom:13px}
+.simchange svg{color:#2563eb}
+.simchange b{color:#2563eb}
+.simdrivers{background:#fff;border:1px solid #dce7f2;border-radius:10px;padding:11px 12px}
+.simdrivers>b{display:block;font-size:9px;color:#33465f;margin-bottom:7px}
+.simdrivers>div:not(.simempty){display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-top:1px solid #edf1f5}
+.simdrivers span{font-size:8px;color:#66778d}
+.simdrivers strong{font-size:9px}
+.simdrivers strong.positive{color:#2b8b61}.simdrivers strong.negative{color:#bd5e5e}
+.simempty{font-size:8px;color:#8a96a4;padding-top:3px}
+.simwarning{display:flex;gap:6px;align-items:flex-start;margin-top:11px;color:#7a6849;font-size:8px;line-height:1.4;background:#fff7e9;border:1px solid #f1dfc3;border-radius:8px;padding:9px}
+.simwarning svg{flex:none;color:#c67a20}
+@media(max-width:800px){.simgrid{grid-template-columns:1fr}.simcontrols{border-right:0;border-bottom:1px solid #edf1f5}}
