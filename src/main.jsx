@@ -41,7 +41,7 @@ function App(){
    const result=calculateRisk({...form,duty:current.duty,leave:current.leave,deployment:current.deployment});
    setSubmitted(true);
    setPersonnel(p=>p.map((x,i)=>i===0?{...x,wellness:result.wellness,risk:result.risk,last:'Just now',trend:[...x.trend.slice(1),result.wellness],checkins:x.checkins+1,riskFactors:result.factors}:x));
-   if(result.risk!=='Low') setAlerts(a=>[{id:Date.now(),name:current.name,risk:result.risk,reason:result.factors[0]?.label||'Wellness signal',time:'Just now'},...a].slice(0,4));
+   if(result.risk!=='Low') setAlerts(a=>[{id:Date.now(),name:current.name,risk:result.risk,reason:result.factors[0]?.label||'Wellness signal',time:'Just now',status:'Open'},...a].slice(0,4));
  }
  return <div className="app">
   <header className="topbar">
@@ -62,13 +62,13 @@ function App(){
  </div>
 }
 
-function Dashboard({stats,personnel,role,onAssessment,onSelect,onPersonnel,alerts}){
+function Dashboard({stats,personnel,role,onAssessment,onSelect,onPersonnel,alerts,onReviewAlert}){
  const low=personnel.filter(p=>p.risk==='Low').length, elevated=stats.elevated, high=stats.high;
  return <>
   <div className="hero"><div><div className="eyebrow">WELFARE OPERATIONS • LIVE DEMO</div><h1>{role==='Personnel'?'My Wellness Overview':'Personnel Wellness Dashboard'}</h1><p>{role==='Personnel'?'Review your own wellness signals and complete a voluntary check-in.':'Early indicators, welfare trends and intervention signals — designed for supportive action, not disciplinary decisions.'}</p></div><button className="primary" onClick={onAssessment}><ClipboardCheck size={17}/> Start wellness check-in</button></div>
   <div className="notice"><Shield size={19}/><div><b>Confidential welfare workspace</b><span>Only authorized roles can access identifiable information. Risk indicators are support signals, not diagnoses.</span></div></div>
   <div className="stats"><Stat icon={Users} label="Personnel monitored" value={stats.total} sub="Active demo records"/><Stat icon={HeartPulse} label="Avg. wellness" value={stats.avg+'%'} sub="Self-report + workload signals"/><Stat icon={AlertTriangle} label="Attention signals" value={stats.elevated+stats.high} sub={high+' high • '+elevated+' elevated'} warn/><Stat icon={ClipboardCheck} label="Avg. check-ins" value={stats.checkins} sub="Across demo personnel"/></div>
-  {alerts.length>0&&<section className="card alertcard"><div className="cardhead"><div><h2>Early welfare alerts</h2><p>New signals requiring authorized human review</p></div><span className="livepill"><Activity size={13}/> Live demo</span></div><div className="alertlist">{alerts.map(a=><div className="alertitem" key={a.id}><div className="alerticon"><AlertTriangle size={17}/></div><div className="alertbody"><b>{a.name} • {a.risk} attention signal</b><span>Primary factor: {a.reason} • {a.time}</span></div><button className="textbtn">Review <ChevronRight size={15}/></button></div>)}</div><div className="alertfoot"><CheckCircle2 size={15}/> Alerts are prompts for welfare review, not automated decisions.</div></section>}<section className="analytics">
+  {alerts.length>0&&<section className="card alertcard"><div className="cardhead"><div><h2>Early welfare alerts</h2><p>New signals requiring authorized human review</p></div><span className="livepill"><Activity size={13}/> Live demo</span></div><div className="alertlist">{alerts.map(a=><div className="alertitem" key={a.id}><div className="alerticon"><AlertTriangle size={17}/></div><div className="alertbody"><b>{a.name} • {a.risk} attention signal</b><span>Primary factor: {a.reason} • {a.time}</span></div>{a.status==='Open'?<button className="textbtn" onClick={()=>onReviewAlert(a.id)}>Review <ChevronRight size={15}/></button>:<span className="reviewedpill"><CheckCircle2 size={13}/> Reviewed</span>}</div>)}</div><div className="alertfoot"><CheckCircle2 size={15}/> Alerts are prompts for welfare review, not automated decisions. Open: {alerts.filter(a=>a.status==='Open').length} • Reviewed: {alerts.filter(a=>a.status==='Reviewed').length}</div></section>}<section className="analytics">
    <div className="card trendcard"><div className="cardhead"><div><h2>Wellness trend</h2><p>Recent illustrative check-in pattern</p></div><div className="legend"><span><i/>Current</span></div></div><TrendChart personnel={personnel}/></div>
    <div className="card distribution"><div className="cardhead"><div><h2>Signal distribution</h2><p>Current demo risk signals</p></div><BarChart3 size={18} className="mutedicon"/></div><div className="distrows"><DistRow label="Low" count={low} total={personnel.length} type="low"/><DistRow label="Elevated" count={elevated} total={personnel.length} type="elevated"/><DistRow label="High" count={high} total={personnel.length} type="high"/></div><div className="signalnote"><Info size={14}/> Signals indicate review priority, not diagnosis.</div></div>
   </section>
