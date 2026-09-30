@@ -38,6 +38,18 @@ function App(){
  const visiblePersonnel=role==='Personnel'?[personnel[0]]:personnel;
  const stats=useMemo(()=>({total:visiblePersonnel.length,elevated:visiblePersonnel.filter(x=>x.risk==='Elevated').length,high:visiblePersonnel.filter(x=>x.risk==='High').length,avg:Math.round(visiblePersonnel.reduce((a,b)=>a+b.wellness,0)/visiblePersonnel.length),checkins:Math.round(visiblePersonnel.reduce((a,b)=>a+b.checkins,0)/visiblePersonnel.length)}),[visiblePersonnel]);
  const nav=role==='Personnel'?[['dashboard','Dashboard',LayoutDashboard],['assessment','Wellness Check-in',ClipboardCheck],['privacy','Privacy & Access',LockKeyhole]]:[['dashboard','Dashboard',LayoutDashboard],['assessment','Wellness Check-in',ClipboardCheck],['personnel','Personnel',Users],['privacy','Privacy & Access',LockKeyhole]];
+ function resetWorkspace(){
+   setPage('dashboard');
+   setMobile(false);
+   setSubmitted(false);
+   setSelected(null);
+   setPersonnel(initialPersonnel.map(x=>({...x,pattern:getPattern(x.history)})));
+   setAlerts([]);
+   setInterventions([]);
+   setFollowups([]);
+   setActivity([]);
+   setForm({sleep:3,mood:3,energy:3,workload:3,concern:''});
+ }
  function submit(){
    const current=personnel[0];
    const result=calculateRisk({...form,duty:current.duty,leave:current.leave,deployment:current.deployment});
@@ -60,7 +72,7 @@ function App(){
     {page==='dashboard'&&<Dashboard stats={stats} personnel={visiblePersonnel} role={role} onAssessment={()=>setPage('assessment')} onSelect={setSelected} onPersonnel={()=>setPage('personnel')} alerts={alerts} onReviewAlert={id=>{const alert=alerts.find(x=>x.id===id);setAlerts(a=>a.map(x=>x.id===id?{...x,status:'Reviewed'}:x));if(alert)setActivity(v=>[{id:Date.now(),type:'review',text:`${alert.name} alert reviewed by ${role}`,time:'Just now'},...v].slice(0,8));}} interventions={interventions} followups={followups} activity={activity} onIntervention={(alert,action)=>{const id=Date.now();setInterventions(v=>[{id,personId:alert.personId,name:alert.name,action,status:'Planned',time:'Just now'},...v]);setFollowups(v=>[{id,personId:alert.personId,name:alert.name,action,status:'Pending',outcome:'Awaiting follow-up',time:'Just now'},...v]);setActivity(v=>[{id:Date.now(),type:'support',text:`${alert.name}: ${action} planned`,time:'Just now'},...v].slice(0,8));}} onOutcome={(id,outcome)=>{const item=followups.find(x=>x.id===id);setFollowups(v=>v.map(x=>x.id===id?{...x,status:'Completed',outcome}:x));if(item){setActivity(v=>[{id:Date.now(),type:'outcome',text:`${item.name} follow-up recorded: ${outcome}`,time:'Just now'},...v].slice(0,8));setPersonnel(v=>v.map(p=>{if(p.id!==item.personId)return p;const score=outcome==='Improved'?Math.min(100,p.wellness+5):outcome==='Stable'?p.wellness:Math.max(0,p.wellness-2);const [risk]=riskFromScore(score);const history=[...(p.history||[]),{date:'Follow-up',wellness:score,risk}].slice(-10);return {...p,wellness:score,risk,trend:[...p.trend.slice(1),score],history,pattern:getPattern(history),last:'Follow-up'};}));}}}/>}
     {page==='assessment'&&<Assessment form={form} setForm={setForm} submit={submit} submitted={submitted}/>}
     {page==='personnel'&&<Personnel personnel={personnel} onSelect={setSelected}/>}
-    {page==='privacy'&&<Privacy role={role}/>}
+    {page==='privacy'&&<Privacy role={role} onReset={resetWorkspace}/>}
    </main>
   </div>
   {selected&&<PersonnelModal p={selected} onClose={()=>setSelected(null)}/>}
