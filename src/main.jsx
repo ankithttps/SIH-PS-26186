@@ -94,13 +94,21 @@ function App(){
    setActivity([]);
    setForm({sleep:3,mood:3,energy:3,workload:3,concern:''});
  }
- async function submit(){
+ async async function submit(){
    const current=personnel[0];
    const result=calculateRisk({...form,duty:current.duty,leave:current.leave,deployment:current.deployment});
    try{
     const response=await fetch(`${API_BASE}/api/checkins`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({person_id:current.id,sleep:form.sleep,mood:form.mood,energy:form.energy,workload:form.workload,concern:form.concern})});
     if(!response.ok)throw new Error('Check-in API failed');
     setBackendStatus('connected');
+    const saved=await response.json();
+    if(saved.alert_id){
+      const alertResponse=await fetch(`${API_BASE}/api/alerts`);
+      if(alertResponse.ok){
+        const serverAlerts=await alertResponse.json();
+        setAlerts(serverAlerts.map(a=>({id:a.id,personId:a.person_id,name:a.name,risk:a.risk,reason:a.reason,time:a.created_at,status:a.status,reviewedBy:a.reviewed_by,reviewedAt:a.reviewed_at})));
+      }
+    }
    }catch{setBackendStatus('offline');}
    const nextHistory=[...(current.history||[]),{date:'Just now',wellness:result.wellness,risk:result.risk}].slice(-10);
    const pattern=getPattern(nextHistory);
