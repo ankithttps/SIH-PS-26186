@@ -11,22 +11,37 @@ const initialPersonnel=[
 ];
 
 function riskFromScore(wellness){if(wellness<=40)return ['High','high'];if(wellness<=65)return ['Elevated','medium'];return ['Low','low'];}
+function calculateRisk({sleep,mood,energy,workload,duty,leave,deployment}){
+ const factors=[
+  {label:'Sleep quality',value:6-sleep,weight:22},
+  {label:'Mood & emotional balance',value:6-mood,weight:22},
+  {label:'Energy level',value:6-energy,weight:16},
+  {label:'Perceived workload',value:workload,weight:18},
+  {label:'Duty hours',value:Math.max(0,duty-8),weight:12},
+  {label:'Leave frequency',value:Math.max(0,3-leave),weight:6},
+  {label:'Deployment intensity',value:deployment==='Extended'?2:deployment==='High-intensity'?1:0,weight:4}
+ ];
+ const points=factors.reduce((s,f)=>s+(f.value/5)*f.weight,0);
+ const wellness=Math.round(Math.max(0,Math.min(100,100-points)));
+ const [risk]=riskFromScore(wellness);
+ return {wellness,risk,factors:factors.filter(f=>f.value>0).sort((a,b)=>(b.value*b.weight)-(a.value*a.weight)).slice(0,3)};
+}
 function App(){
  const [page,setPage]=useState('dashboard');
  const [mobile,setMobile]=useState(false);
  const [role,setRole]=useState('Welfare Officer');
  const [personnel,setPersonnel]=useState(initialPersonnel);
  const [submitted,setSubmitted]=useState(false);
- const [selected,setSelected]=useState(null);
+ const [selected,setSelected]=useState(null); const [alerts,setAlerts]=useState([]);
  const [form,setForm]=useState({sleep:3,mood:3,energy:3,workload:3,concern:''});
  const stats=useMemo(()=>({total:personnel.length,elevated:personnel.filter(x=>x.risk==='Elevated').length,high:personnel.filter(x=>x.risk==='High').length,avg:Math.round(personnel.reduce((a,b)=>a+b.wellness,0)/personnel.length),checkins:Math.round(personnel.reduce((a,b)=>a+b.checkins,0)/personnel.length)}),[personnel]);
  const nav=[['dashboard','Dashboard',LayoutDashboard],['assessment','Wellness Check-in',ClipboardCheck],['personnel','Personnel',Users],['privacy','Privacy & Access',LockKeyhole]];
  function submit(){
-   const raw=(form.sleep+form.mood+form.energy+form.workload)*6;
-   const score=Math.max(0,Math.min(100,100-raw));
-   const [risk]=riskFromScore(score);
+   const current=personnel[0];
+   const result=calculateRisk({...form,duty:current.duty,leave:current.leave,deployment:current.deployment});
    setSubmitted(true);
-   setPersonnel(p=>p.map((x,i)=>i===0?{...x,wellness:score,risk,last:'Just now',trend:[...x.trend.slice(1),score],checkins:x.checkins+1}:x));
+   setPersonnel(p=>p.map((x,i)=>i===0?{...x,wellness:result.wellness,risk:result.risk,last:'Just now',trend:[...x.trend.slice(1),result.wellness],checkins:x.checkins+1,riskFactors:result.factors}:x));
+   if(result.risk!=='Low') setAlerts(a=>[{id:Date.now(),name:current.name,risk:result.risk,reason:result.factors[0]?.label||'Wellness signal',time:'Just now'},...a].slice(0,4));
  }
  return <div className="app">
   <header className="topbar">
@@ -47,13 +62,13 @@ function App(){
  </div>
 }
 
-function Dashboard({stats,personnel,role,onAssessment,onSelect,onPersonnel}){
+function Dashboard({stats,personnel,role,onAssessment,onSelect,onPersonnel,alerts}){
  const low=personnel.filter(p=>p.risk==='Low').length, elevated=stats.elevated, high=stats.high;
  return <>
   <div className="hero"><div><div className="eyebrow">WELFARE OPERATIONS • LIVE DEMO</div><h1>{role==='Personnel'?'My Wellness Overview':'Personnel Wellness Dashboard'}</h1><p>{role==='Personnel'?'Review your own wellness signals and complete a voluntary check-in.':'Early indicators, welfare trends and intervention signals — designed for supportive action, not disciplinary decisions.'}</p></div><button className="primary" onClick={onAssessment}><ClipboardCheck size={17}/> Start wellness check-in</button></div>
   <div className="notice"><Shield size={19}/><div><b>Confidential welfare workspace</b><span>Only authorized roles can access identifiable information. Risk indicators are support signals, not diagnoses.</span></div></div>
   <div className="stats"><Stat icon={Users} label="Personnel monitored" value={stats.total} sub="Active demo records"/><Stat icon={HeartPulse} label="Avg. wellness" value={stats.avg+'%'} sub="Self-report + workload signals"/><Stat icon={AlertTriangle} label="Attention signals" value={stats.elevated+stats.high} sub={high+' high • '+elevated+' elevated'} warn/><Stat icon={ClipboardCheck} label="Avg. check-ins" value={stats.checkins} sub="Across demo personnel"/></div>
-  <section className="analytics">
+  {alerts.length>0&&<section className="card alertcard"><div className="cardhead"><div><h2>Early welfare alerts</h2><p>New signals requiring authorized human review</p></div><span className="livepill"><Activity size={13}/> Live demo</span></div><div className="alertlist">{alerts.map(a=><div className="alertitem" key={a.id}><div className="alerticon"><AlertTriangle size={17}/></div><div className="alertbody"><b>{a.name} • {a.risk} attention signal</b><span>Primary factor: {a.reason} • {a.time}</span></div><button className="textbtn">Review <ChevronRight size={15}/></button></div>)}</div><div className="alertfoot"><CheckCircle2 size={15}/> Alerts are prompts for welfare review, not automated decisions.</div></section>}<section className="analytics">
    <div className="card trendcard"><div className="cardhead"><div><h2>Wellness trend</h2><p>Recent illustrative check-in pattern</p></div><div className="legend"><span><i/>Current</span></div></div><TrendChart personnel={personnel}/></div>
    <div className="card distribution"><div className="cardhead"><div><h2>Signal distribution</h2><p>Current demo risk signals</p></div><BarChart3 size={18} className="mutedicon"/></div><div className="distrows"><DistRow label="Low" count={low} total={personnel.length} type="low"/><DistRow label="Elevated" count={elevated} total={personnel.length} type="elevated"/><DistRow label="High" count={high} total={personnel.length} type="high"/></div><div className="signalnote"><Info size={14}/> Signals indicate review priority, not diagnosis.</div></div>
   </section>
@@ -89,7 +104,7 @@ function Personnel({personnel,onSelect}){
 }
 
 function PersonnelModal({p,onClose}){
- return <div className="modalback" onClick={onClose}><div className="modal" onClick={e=>e.stopPropagation()}><button className="closebtn" onClick={onClose}><X size={17}/></button><div className="modalprofile"><div className="modalavatar">{p.name.split(' ').map(x=>x[0]).join('')}</div><div><div className="eyebrow">DEMO PERSONNEL PROFILE</div><h2>{p.name}</h2><p>{p.id} • {p.unit} • {p.deployment}</p></div><span className={'badge '+p.risk.toLowerCase()}>{p.risk} signal</span></div><div className="modalstats"><MiniStat label="Wellness" value={p.wellness+'%'}/><MiniStat label="Duty pattern" value={p.duty+'h/day'}/><MiniStat label="Leave" value={p.leave+' days'}/><MiniStat label="Check-ins" value={p.checkins}/></div><div className="contextbox"><MessageCircle size={17}/><div><b>Suggested review focus</b><span>{p.duty>=10?'Review extended duty pattern and offer a confidential welfare conversation.':p.leave<=2?'Consider discussing leave access and current workload.':'Continue routine welfare check-ins and monitor trend.'}</span></div></div><div className="modalnote"><Info size={15}/> This prototype shows illustrative data. A signal should be reviewed with context by an authorized welfare role.</div></div></div>;
+ return <div className="modalback" onClick={onClose}><div className="modal" onClick={e=>e.stopPropagation()}><button className="closebtn" onClick={onClose}><X size={17}/></button><div className="modalprofile"><div className="modalavatar">{p.name.split(' ').map(x=>x[0]).join('')}</div><div><div className="eyebrow">DEMO PERSONNEL PROFILE</div><h2>{p.name}</h2><p>{p.id} • {p.unit} • {p.deployment}</p></div><span className={'badge '+p.risk.toLowerCase()}>{p.risk} signal</span></div><div className="modalstats"><MiniStat label="Wellness" value={p.wellness+'%'}/><MiniStat label="Duty pattern" value={p.duty+'h/day'}/><MiniStat label="Leave" value={p.leave+' days'}/><MiniStat label="Check-ins" value={p.checkins}/></div><div className="contextbox"><MessageCircle size={17}/><div><b>Suggested review focus</b><span>{p.duty>=10?'Review extended duty pattern and offer a confidential welfare conversation.':p.leave<=2?'Consider discussing leave access and current workload.':'Continue routine welfare check-ins and monitor trend.'}</span></div></div><div className="factorbox"><div className="factorhead"><b>Risk factors detected</b><span>Illustrative engine output</span></div>{(p.riskFactors||[{label:p.duty>=10?'Duty hours':'Current wellness signal',value:1,weight:1}]).map(f=><div className="factor" key={f.label}><span>{f.label}</span><i><em style={{width:Math.min(100,Math.max(18,f.value/f.weight*100))+'%'}}/></i><small>review</small></div>)}</div><div className="intervention"><div className="actionicon"><HeartPulse size={17}/></div><div><b>Human-led intervention</b><span>Offer a confidential conversation and review workload, rest and leave context before deciding next steps.</span></div></div><div className="modalnote"><Info size={15}/> This prototype shows illustrative data. A signal should be reviewed with context by an authorized welfare role.</div></div></div>;
 }
 function MiniStat({label,value}){return <div><span>{label}</span><b>{value}</b></div>}
 
