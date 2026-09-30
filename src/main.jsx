@@ -27,6 +27,23 @@ function calculateRisk({sleep,mood,energy,workload,duty,leave,deployment}){
  const [risk]=riskFromScore(wellness);
  return {wellness,risk,factors:factors.filter(f=>f.value>0).sort((a,b)=>(b.value*b.weight)-(a.value*a.weight)).slice(0,3)};
 }
+class AppErrorBoundary extends React.Component{
+ constructor(props){super(props);this.state={error:null};}
+ static getDerivedStateFromError(error){return {error};}
+ componentDidCatch(error,info){console.error('RakshakWell render error:',error,info);}
+ render(){
+  if(this.state.error){
+   return <div style={{fontFamily:'system-ui',padding:'32px',maxWidth:'900px',margin:'40px auto',background:'#fff',color:'#172033'}}>
+    <h1>RakshakWell — frontend error</h1>
+    <p>The app loaded, but a component crashed while rendering.</p>
+    <pre style={{whiteSpace:'pre-wrap',background:'#f4f6f8',padding:'16px',borderRadius:'10px',overflow:'auto'}}>{this.state.error?.stack||String(this.state.error)}</pre>
+    <button onClick={()=>this.setState({error:null})} style={{padding:'10px 16px',cursor:'pointer'}}>Try again</button>
+   </div>;
+  }
+  return this.props.children;
+ }
+}
+
 function App(){
  const [page,setPage]=useState('dashboard');
  const [demoMode,setDemoMode]=useState(false);
@@ -336,4 +353,4 @@ function Privacy({role,onReset}){
  return <div className="page"><div className="pagehead"><div><div className="eyebrow">GOVERNANCE</div><h1>Privacy & Access</h1><p>Privacy safeguards are part of the welfare workflow, not an afterthought.</p></div></div><div className="privacygrid"><div className="card"><h2>Current demo role</h2><div className="rolebig"><Shield size={23}/><div><b>{role}</b><span>Role-based access context</span></div></div><div className="perm"><CheckCircle2/> {permission}</div><div className="perm"><CheckCircle2/> Review recommendations</div><div className="perm"><CheckCircle2/> Support check-in workflow</div><div className="perm muted"><LockKeyhole/> Raw sensitive data restricted</div></div><div className="card"><h2>Protection principles</h2><div className="guard"><LockKeyhole/><div><b>Data minimization</b><span>Only relevant welfare and organizational indicators are used.</span></div></div><div className="guard"><Shield/><div><b>Role-based access</b><span>Access is shown by role in this demo; production access would require server-side authorization.</span></div></div><div className="guard"><Users/><div><b>Human-in-the-loop</b><span>AI signals support review; they do not autonomously decide interventions.</span></div></div><div className="guard"><HeartPulse/><div><b>Welfare-first purpose</b><span>The system is intended for support rather than disciplinary action.</span></div></div></div></div><div className="card democontrol"><div className="demohead"><div><h2>Demo controls</h2><p>Reset the workspace before a fresh SIH walkthrough.</p></div><SlidersHorizontal size={18} className="mutedicon"/></div><div className="demobody"><div><b>Reset demo workspace</b><span>Clears alerts, interventions, follow-ups and timeline activity, then restores the original sample data.</span></div><button className="softbtn resetbtn" onClick={onReset}>Reset demo</button></div><div className="demonote"><Info size={14}/> This control only resets local demo state. It does not delete or modify real personnel data.</div></div></div>;
 }
 
-createRoot(document.getElementById('root')).render(<App/>);
+createRoot(document.getElementById('root')).render(<AppErrorBoundary><App/></AppErrorBoundary>);
