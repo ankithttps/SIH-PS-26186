@@ -33,7 +33,7 @@ function App(){
  const [role,setRole]=useState('Welfare Officer');
  const [personnel,setPersonnel]=useState(initialPersonnel.map(x=>({...x,pattern:getPattern(x.history)})));
  const [submitted,setSubmitted]=useState(false);
- const [selected,setSelected]=useState(null); const [alerts,setAlerts]=useState([]); const [interventions,setInterventions]=useState([]); const [followups,setFollowups]=useState([]);
+ const [selected,setSelected]=useState(null); const [alerts,setAlerts]=useState([]); const [interventions,setInterventions]=useState([]); const [followups,setFollowups]=useState([]); const [activity,setActivity]=useState([]);
  const [form,setForm]=useState({sleep:3,mood:3,energy:3,workload:3,concern:''});
  const stats=useMemo(()=>({total:personnel.length,elevated:personnel.filter(x=>x.risk==='Elevated').length,high:personnel.filter(x=>x.risk==='High').length,avg:Math.round(personnel.reduce((a,b)=>a+b.wellness,0)/personnel.length),checkins:Math.round(personnel.reduce((a,b)=>a+b.checkins,0)/personnel.length)}),[personnel]);
  const nav=[['dashboard','Dashboard',LayoutDashboard],['assessment','Wellness Check-in',ClipboardCheck],['personnel','Personnel',Users],['privacy','Privacy & Access',LockKeyhole]];
