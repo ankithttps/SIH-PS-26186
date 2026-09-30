@@ -38,7 +38,7 @@ function App(){
  const [form,setForm]=useState({sleep:3,mood:3,energy:3,workload:3,concern:''});
  const visiblePersonnel=role==='Personnel'?[personnel[0]]:personnel;
  const stats=useMemo(()=>({total:visiblePersonnel.length,elevated:visiblePersonnel.filter(x=>x.risk==='Elevated').length,high:visiblePersonnel.filter(x=>x.risk==='High').length,avg:Math.round(visiblePersonnel.reduce((a,b)=>a+b.wellness,0)/visiblePersonnel.length),checkins:Math.round(visiblePersonnel.reduce((a,b)=>a+b.checkins,0)/visiblePersonnel.length)}),[visiblePersonnel]);
- const nav=role==='Personnel'?[['dashboard','Dashboard',LayoutDashboard],['assessment','Wellness Check-in',ClipboardCheck],['workspace','Workspace',FolderOpen],['privacy','Privacy & Access',LockKeyhole]]:[['dashboard','Dashboard',LayoutDashboard],['assessment','Wellness Check-in',ClipboardCheck],['personnel','Personnel',Users],['workspace','Workspace',FolderOpen],['privacy','Privacy & Access',LockKeyhole]];
+ const nav=role==='Personnel'?[['dashboard','Dashboard',LayoutDashboard],['assessment','Wellness Check-in',ClipboardCheck],['workspace','Workspace',FolderOpen],['security','Security Center',Shield],['privacy','Privacy & Access',LockKeyhole]]:[['dashboard','Dashboard',LayoutDashboard],['assessment','Wellness Check-in',ClipboardCheck],['personnel','Personnel',Users],['workspace','Workspace',FolderOpen],['privacy','Privacy & Access',LockKeyhole]];
  function handleSignOut(){
    localStorage.setItem('rakshakwell_signed_in','false');
    setSignedIn(false);
@@ -85,11 +85,35 @@ function App(){
     {page==='dashboard'&&<Dashboard stats={stats} personnel={visiblePersonnel} role={role} onAssessment={()=>setPage('assessment')} onSelect={setSelected} onPersonnel={()=>setPage('personnel')} alerts={alerts} onReviewAlert={id=>{const alert=alerts.find(x=>x.id===id);setAlerts(a=>a.map(x=>x.id===id?{...x,status:'Reviewed',reviewedBy:role,reviewedAt:'Just now'}:x));if(alert)setActivity(v=>[{id:Date.now(),type:'review',text:`${alert.name} alert reviewed by ${role}`,time:'Just now'},...v].slice(0,8));}} interventions={interventions} followups={followups} activity={activity} onIntervention={(alert,action)=>{const id=Date.now();setInterventions(v=>[{id,personId:alert.personId,name:alert.name,action,status:'Planned',time:'Just now'},...v]);setFollowups(v=>[{id,personId:alert.personId,name:alert.name,action,status:'Pending',outcome:'Awaiting follow-up',time:'Just now'},...v]);setActivity(v=>[{id:Date.now(),type:'support',text:`${alert.name}: ${action} planned`,time:'Just now'},...v].slice(0,8));}} onOutcome={(id,outcome)=>{const item=followups.find(x=>x.id===id);setFollowups(v=>v.map(x=>x.id===id?{...x,status:'Completed',outcome}:x));if(item){setActivity(v=>[{id:Date.now(),type:'outcome',text:`${item.name} follow-up recorded: ${outcome}`,time:'Just now'},...v].slice(0,8));setPersonnel(v=>v.map(p=>{if(p.id!==item.personId)return p;const score=outcome==='Improved'?Math.min(100,p.wellness+5):outcome==='Stable'?p.wellness:Math.max(0,p.wellness-2);const [risk]=riskFromScore(score);const history=[...(p.history||[]),{date:'Follow-up',wellness:score,risk}].slice(-10);return {...p,wellness:score,risk,trend:[...p.trend.slice(1),score],history,pattern:getPattern(history),last:'Follow-up'};}));}}}/>}
     {page==='assessment'&&<Assessment form={form} setForm={setForm} submit={submit} submitted={submitted}/>}
     {page==='personnel'&&<Personnel personnel={personnel} onSelect={setSelected}/>}
-    {page==='privacy'&&<Privacy role={role} onReset={resetWorkspace}/>}
+    {page==='privacy'&&<Privacy role={role} onReset={resetWorkspace}/>}\n    {page==='security'&&<Security role={role}/>}
     {page==='workspace'&&<Workspace stats={stats} alerts={alerts} activity={activity} personnel={visiblePersonnel} onPersonnel={()=>setPage('personnel')} onDashboard={()=>setPage('dashboard')} onPrivacy={()=>setPage('privacy')} onAssessment={()=>setPage('assessment')}/>}
    </main>
   </div>
   {selected&&<PersonnelModal p={selected} onClose={()=>setSelected(null)}/>}
+ </div>
+}
+
+
+function Security({role}){
+ const events=[
+  {label:'Role-based access',status:'Active',text:'Access is scoped by the current demo role.'},
+  {label:'Audit trail',status:'Active',text:'Sensitive welfare actions are recorded in the demo timeline.'},
+  {label:'Human review',status:'Required',text:'AI signals are review prompts, not autonomous decisions.'},
+  {label:'Data minimization',status:'Planned',text:'Production should collect only data necessary for welfare use.'},
+  {label:'Encryption',status:'Planned',text:'Production architecture should protect data in transit and at rest.'},
+  {label:'MFA',status:'Planned',text:'Production authentication should use an approved second factor.'}
+ ];
+ return <div className="page security-page">
+  <div className="pagehead"><div><div className="eyebrow">SECURITY & COMPLIANCE</div><h1>Security Center</h1><p>Defense-in-depth controls for a privacy-sensitive welfare system.</p></div></div>
+  <div className="security-banner"><Shield size={22}/><div><b>Security-first welfare platform</b><span>Prototype controls are clearly separated from production security requirements. No security control should be treated as implemented unless it is actually enforced by the system.</span></div></div>
+  <div className="securitygrid">
+   {events.map((x,i)=><div className="card securitycard" key={x.label}><div className="securityicon">{i<3?<CheckCircle2 size={18}/>:<LockKeyhole size={18}/>}</div><div className="securitycopy"><div><b>{x.label}</b><span className={x.status==='Active'?'securitystatus active':'securitystatus planned'}>{x.status}</span></div><p>{x.text}</p></div></div>)}
+  </div>
+  <div className="securitycols">
+   <div className="card"><div className="cardhead"><div><h2>Security principles</h2><p>Controls that should guide the production system</p></div></div><div className="securitylist"><div><b>Least privilege</b><span>Users get only the access required for their role.</span></div><div><b>Privacy by design</b><span>Minimize collection and restrict identifiable welfare information.</span></div><div><b>Human-in-the-loop</b><span>Predictive signals support review; they do not make disciplinary or medical decisions.</span></div><div><b>Traceability</b><span>Sensitive access and welfare actions should be auditable.</span></div><div><b>Secure by default</b><span>Production APIs, sessions, storage and secrets require server-side protection.</span></div></div></div>
+   <div className="card"><div className="cardhead"><div><h2>Security event posture</h2><p>Illustrative prototype status</p></div></div><div className="securitymetrics"><div><span>Open security events</span><b>0</b></div><div><span>Active demo controls</span><b>3</b></div><div><span>Production controls planned</span><b>3</b></div></div><div className="securitynote"><Info size={14}/> This demo does not claim real MFA, encryption, backend authorization or production-grade cybersecurity.</div></div>
+  </div>
+  <div className="card securityarchitecture"><div className="cardhead"><div><h2>Production security architecture</h2><p>Recommended flow for the real deployment</p></div></div><div className="securityflow"><span>Secure login + MFA</span><ChevronRight/><span>Server-side RBAC</span><ChevronRight/><span>Validated API</span><ChevronRight/><span>Encrypted storage</span><ChevronRight/><span>Audit + monitoring</span></div></div>
  </div>
 }
 
