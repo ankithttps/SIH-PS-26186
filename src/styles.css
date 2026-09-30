@@ -31,3 +31,16 @@
 
 /* Welfare activity timeline */
 .activitycard{margin-bottom:15px;overflow:hidden}.activitylist{border-top:1px solid #edf0f4}.activityitem{display:flex;align-items:flex-start;gap:10px;padding:11px 18px;border-bottom:1px solid #edf0f4}.activitydot{width:8px;height:8px;border-radius:50%;background:#8090a3;margin-top:4px;flex:none}.activitydot.checkin{background:#5d718d}.activitydot.review{background:#c58b3e}.activitydot.support{background:#6e9d7d}.activitydot.outcome{background:#53667f}.activityitem b,.activityitem span{display:block}.activityitem b{font-size:10px;color:#334057}.activityitem span{font-size:9px;color:#8a94a2;margin-top:2px}.emptyactivity{padding:15px 18px;color:#8a94a2;font-size:9px}@media(max-width:700px){.activityitem{padding:10px 14px}}
+
+/* Demo workspace controls */
+.democontrol{padding:0;overflow:hidden}
+.demohead{display:flex;justify-content:space-between;align-items:flex-start;padding:17px 18px 12px;border-bottom:1px solid #edf0f4}
+.demohead h2{margin:0;color:#1d2a40;font-size:15px}
+.demohead p{font-size:11px;color:#8992a1;margin:4px 0 0}
+.demobody{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 18px}
+.demobody b,.demobody span{display:block}
+.demobody b{font-size:11px}
+.demobody span{font-size:9px;color:#818b9a;margin-top:3px;max-width:620px}
+.resetbtn{white-space:nowrap;background:#fff}
+.demonote{margin:0 18px 17px;padding:9px;background:#f7f9fb;border:1px solid #e7ebf0;border-radius:8px;display:flex;gap:6px;align-items:flex-start;color:#748091;font-size:9px}
+@media(max-width:700px){.demobody{align-items:flex-start;flex-direction:column}.resetbtn{width:100%}}
