@@ -28,3 +28,6 @@
 .outcomestatus.stable{background:#eef2f6;color:#53667f}
 .outcomestatus.further-review-required{background:#fff0e6;color:#a45520}
 @media(max-width:700px){.outcomeitem{align-items:flex-start;flex-direction:column}.outcomebuttons{width:100%;justify-content:flex-start}.outcome{flex:1}}
+
+/* Welfare activity timeline */
+.activitycard{margin-bottom:15px;overflow:hidden}.activitylist{border-top:1px solid #edf0f4}.activityitem{display:flex;align-items:flex-start;gap:10px;padding:11px 18px;border-bottom:1px solid #edf0f4}.activitydot{width:8px;height:8px;border-radius:50%;background:#8090a3;margin-top:4px;flex:none}.activitydot.checkin{background:#5d718d}.activitydot.review{background:#c58b3e}.activitydot.support{background:#6e9d7d}.activitydot.outcome{background:#53667f}.activityitem b,.activityitem span{display:block}.activityitem b{font-size:10px;color:#334057}.activityitem span{font-size:9px;color:#8a94a2;margin-top:2px}.emptyactivity{padding:15px 18px;color:#8a94a2;font-size:9px}@media(max-width:700px){.activityitem{padding:10px 14px}}
