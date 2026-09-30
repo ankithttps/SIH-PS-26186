@@ -1,33 +1,57 @@
-# RakshakWell — Personnel Wellness Intelligence
+# RakshakWell — Personnel Welfare Intelligence
 
 Prototype for **SIH Problem Statement 26186**: AI-Based Predictive Personnel Stress and Welfare Monitoring System for Uniformed Forces.
 
-## V2 prototype
+## Frontend
+- React + Vite + lucide-react
 - Welfare Officer / Commander / Personnel role context (demo)
-- Personnel wellness dashboard
-- Wellness trend visualization using illustrative check-in history
-- Signal distribution overview
-- Voluntary wellness self-assessment with live check-in preview
-- Demo risk-signal calculation
-- Personnel search + unit filtering
-- Personnel detail modal with duty, leave, wellness and review context
-- Predictive-style welfare risk engine using self-report + organizational context
-- Explainable top risk factors for human review
-- Early welfare alert workflow triggered by elevated/high demo signals
-- Human-led intervention guidance
-- Welfare intervention recommendations
-- Privacy & governance screen
-- Human-in-the-loop and welfare-first safeguards
-- Responsive UI for desktop and mobile
+- Personnel wellness dashboard and trends
+- Voluntary wellness self-assessment
+- Illustrative risk-signal calculation and explainable factors
+- Early welfare alert workflow
+- Human-led intervention and follow-up tracking
+- Privacy, security, audit and demo session controls
+- Unit welfare analytics and what-if scenario simulator
+- Personnel welfare case file
+- Guided SIH presentation walkthrough
 
-## Run
-```bash
-npm install
-npm run dev -- --host 0.0.0.0
+## Backend
+The prototype now includes an optional **FastAPI + SQLite** data layer:
+
+```
+Browser
+  ↓
+React + Vite
+  ↓
+FastAPI
+  ↓
+SQLite (demo)
+  ↓
+Personnel / Check-ins / Alerts / Interventions / Follow-ups
 ```
 
+Backend endpoints include personnel records, check-ins, alerts, interventions, follow-up outcomes and unit analytics. See `backend/README.md`.
+
+## Run frontend
+```bash
+npm install
+npm run dev
+```
+
+## Run backend
+Windows PowerShell:
+```powershell
+cd backend
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+uvicorn main:app --reload --port 8000
+```
+
+API docs: http://127.0.0.1:8000/docs
+
 ## Prototype scope
-This is a demonstration interface. Data is illustrative and stored only in frontend state. The risk calculation is a demo signal engine, not a clinical or psychological diagnosis. Production deployment would require secure backend services, authentication/authorization, consent controls, audit logging, validated analytics, and appropriate data governance.
+The current frontend still works as a standalone demo. The backend is an optional prototype data/API layer and is not yet wired into every frontend action. Risk calculations are illustrative demo logic, not clinical validation, diagnosis, or autonomous personnel decisions. Production deployment would require secure authentication/authorization, consent controls, encrypted storage, audit logging, validated analytics/models, monitoring, and appropriate data governance.
 
 ## SIH demo positioning
-The prototype is designed to demonstrate the workflow from voluntary self-reporting and organizational indicators to a reviewable welfare signal and human-led support action. It does not autonomously diagnose personnel or make disciplinary decisions.
+The prototype demonstrates a workflow from voluntary self-reporting and organizational indicators to a reviewable welfare signal and human-led support action. It does not autonomously diagnose personnel or make disciplinary decisions.
