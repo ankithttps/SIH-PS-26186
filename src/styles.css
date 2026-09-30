@@ -46,3 +46,10 @@
 @media(max-width:700px){.demobody{align-items:flex-start;flex-direction:column}.resetbtn{width:100%}}
 
 .reviewmeta{display:block;font-size:8px;color:#718070;margin-top:3px;font-weight:700}
+
+/* Transparent signal inputs */
+.inputbox{margin-top:11px;border:1px solid #e7ebf0;border-radius:9px;padding:12px;background:#fbfcfd}
+.inputchips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.inputchips span{padding:5px 7px;border:1px solid #e1e6ec;background:#fff;border-radius:999px;font-size:8px;color:#596579;font-weight:700}
+.inputnote{display:flex;gap:5px;align-items:flex-start;margin-top:9px;color:#7a8492;font-size:8px;line-height:1.35}
+.inputnote svg{flex:none;color:#53667f}
