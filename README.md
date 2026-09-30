@@ -2,22 +2,28 @@
 
 Prototype for **SIH Problem Statement 26186**: AI-Based Predictive Personnel Stress and Welfare Monitoring System for Uniformed Forces.
 
-## Current prototype
-- Welfare Officer / Commander / Personnel role switcher (demo)
+## V2 prototype
+- Welfare Officer / Commander / Personnel role context (demo)
 - Personnel wellness dashboard
-- Welfare signal overview
-- Voluntary wellness self-assessment
+- Wellness trend visualization using illustrative check-in history
+- Signal distribution overview
+- Voluntary wellness self-assessment with live check-in preview
 - Demo risk-signal calculation
+- Personnel search + unit filtering
+- Personnel detail modal with duty, leave, wellness and review context
 - Welfare intervention recommendations
-- Personnel table with role-oriented access concept
 - Privacy & governance screen
-- Responsive UI
+- Human-in-the-loop and welfare-first safeguards
+- Responsive UI for desktop and mobile
 
-## Run locally
+## Run
 ```bash
 npm install
-npm run dev
+npm run dev -- --host 0.0.0.0
 ```
 
-## Important
-This is a prototype/demo. It does not diagnose mental-health conditions and does not make disciplinary decisions. Demo records and calculations are illustrative.
+## Prototype scope
+This is a demonstration interface. Data is illustrative and stored only in frontend state. The risk calculation is a demo signal engine, not a clinical or psychological diagnosis. Production deployment would require secure backend services, authentication/authorization, consent controls, audit logging, validated analytics, and appropriate data governance.
+
+## SIH demo positioning
+The prototype is designed to demonstrate the workflow from voluntary self-reporting and organizational indicators to a reviewable welfare signal and human-led support action. It does not autonomously diagnose personnel or make disciplinary decisions.
