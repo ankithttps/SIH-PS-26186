@@ -1,4 +1,4 @@
-import React,{useMemo,useState} from 'react';
+import React,{useEffect,useMemo,useState} from 'react';
 import {createRoot} from 'react-dom/client';
 import {Shield,LayoutDashboard,ClipboardCheck,Users,LockKeyhole,AlertTriangle,HeartPulse,CalendarDays,Activity,ChevronRight,CheckCircle2,Clock3,Brain,Menu,X,LogOut,TrendingUp,UserRound,BarChart3,Info,MessageCircle,SlidersHorizontal,FolderOpen,FileText,Settings2,ArrowUpRight,ArrowDownRight} from 'lucide-react';
 import './styles.css';
@@ -44,6 +44,8 @@ class AppErrorBoundary extends React.Component{
  }
 }
 
+const API_BASE='http://127.0.0.1:8000';
+
 function App(){
  const [page,setPage]=useState('dashboard');
  const [demoMode,setDemoMode]=useState(false);
@@ -54,6 +56,12 @@ function App(){
  const [mfaDemo,setMfaDemo]=useState(false);
  const [role,setRole]=useState('Welfare Officer');
  const [personnel,setPersonnel]=useState(initialPersonnel.map(x=>({...x,pattern:getPattern(x.history)})));
+ const [backendStatus,setBackendStatus]=useState('checking');
+ useEffect(()=>{
+  let active=true;
+  fetch(`${API_BASE}/health`).then(r=>{if(!r.ok)throw new Error('Backend unavailable');return r.json();}).then(()=>{if(active)setBackendStatus('connected');}).catch(()=>{if(active)setBackendStatus('offline');});
+  return ()=>{active=false;};
+ },[]);
  const [submitted,setSubmitted]=useState(false);
  const [selected,setSelected]=useState(null); const [alerts,setAlerts]=useState([]); const [interventions,setInterventions]=useState([]); const [followups,setFollowups]=useState([]); const [activity,setActivity]=useState([]);
  const [form,setForm]=useState({sleep:3,mood:3,energy:3,workload:3,concern:''});
@@ -86,9 +94,14 @@ function App(){
    setActivity([]);
    setForm({sleep:3,mood:3,energy:3,workload:3,concern:''});
  }
- function submit(){
+ async function submit(){
    const current=personnel[0];
    const result=calculateRisk({...form,duty:current.duty,leave:current.leave,deployment:current.deployment});
+   try{
+    const response=await fetch(`${API_BASE}/api/checkins`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({person_id:current.id,sleep:form.sleep,mood:form.mood,energy:form.energy,workload:form.workload,concern:form.concern})});
+    if(!response.ok)throw new Error('Check-in API failed');
+    setBackendStatus('connected');
+   }catch{setBackendStatus('offline');}
    const nextHistory=[...(current.history||[]),{date:'Just now',wellness:result.wellness,risk:result.risk}].slice(-10);
    const pattern=getPattern(nextHistory);
    setSubmitted(true);
@@ -101,7 +114,7 @@ function App(){
   <header className="topbar">
    <button className="iconbtn menu" onClick={()=>setMobile(!mobile)}>{mobile?<X/>:<Menu/>}</button>
    <div className="brand"><div className="brandmark"><Shield size={21}/></div><div><b>RakshakWell</b><span>Personnel Welfare Intelligence</span></div></div>
-   <div className="topright"><select value={role} onChange={e=>{const next=e.target.value;setRole(next);setSubmitted(false);if(next==='Personnel')setPage('dashboard');}}><option>Welfare Officer</option><option>Commander</option><option>Personnel</option></select><div className="avatar">{role==='Welfare Officer'?'WO':role==='Commander'?'CO':'ME'}</div></div>
+   <div className="topright"><span className={`backendbadge ${backendStatus}`}>API {backendStatus}</span><select value={role} onChange={e=>{const next=e.target.value;setRole(next);setSubmitted(false);if(next==='Personnel')setPage('dashboard');}}><option>Welfare Officer</option><option>Commander</option><option>Personnel</option></select><div className="avatar">{role==='Welfare Officer'?'WO':role==='Commander'?'CO':'ME'}</div></div>
   </header>
   <div className="layout">
    <aside className={mobile?'sidebar open':'sidebar'}><div className="side-label">WORKSPACE</div>{nav.map(([key,label,Icon])=><button key={key} className={page===key?'nav active':'nav'} onClick={()=>{setPage(key);setSubmitted(false);setMobile(false)}}><Icon size={18}/>{label}</button>)}<div className="side-bottom"><div className="privacy-mini"><LockKeyhole size={16}/><div><b>Privacy first</b><small>Welfare use only</small></div></div><button className="logout" onClick={handleSignOut}><LogOut size={16}/> Sign out</button></div></aside>
