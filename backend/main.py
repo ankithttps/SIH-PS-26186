@@ -167,7 +167,7 @@ def list_personnel(x_demo_role: str | None = Header(default=None)):
     require_role(x_demo_role, {"Welfare Officer", "Commander", "Personnel"})
     conn=connect()
     if x_demo_role == "Commander":
-        rows=[dict(r) for r in conn.execute("SELECT unit,ROUND(AVG(wellness),0) AS average_wellness,ROUND(AVG(duty),1) AS average_duty_hours,SUM(CASE WHEN risk!='Low' THEN 1 ELSE 0 END) AS attention_signals,COUNT(*) AS personnel_count FROM personnel GROUP BY unit ORDER BY unit")]
+        rows=[dict(r) for r in conn.execute("SELECT unit,unit AS id,'Unit aggregate' AS name,'Aggregated' AS deployment,ROUND(AVG(leave),1) AS leave,ROUND(AVG(duty),1) AS duty,ROUND(AVG(wellness),0) AS wellness,CASE WHEN SUM(CASE WHEN risk='High' THEN 1 ELSE 0 END)>0 THEN 'High' WHEN SUM(CASE WHEN risk='Elevated' THEN 1 ELSE 0 END)>0 THEN 'Elevated' ELSE 'Low' END AS risk,'Aggregated' AS last,COUNT(*) AS checkins FROM personnel GROUP BY unit ORDER BY unit")]
     elif x_demo_role == "Personnel":
         rows=[dict(r) for r in conn.execute("SELECT * FROM personnel WHERE id=?", (DEMO_PERSON_ID,))]
     else:
@@ -220,7 +220,12 @@ def create_checkin(data: CheckinIn, x_demo_role: str | None = Header(default=Non
 
 @app.get("/api/alerts")
 def list_alerts(x_demo_role: str | None = Header(default=None)):
-    require_role(x_demo_role, {"Welfare Officer"})
+    require_role(x_demo_role, {"Welfare Officer", "Commander"})
+    if x_demo_role == "Commander":
+        conn=connect()
+        rows=[dict(r) for r in conn.execute("SELECT id,risk,status,created_at FROM alerts ORDER BY id DESC")]
+        conn.close()
+        return rows
     conn=connect()
     rows=[dict(r) for r in conn.execute("SELECT * FROM alerts ORDER BY id DESC")]
     conn.close()
@@ -244,7 +249,8 @@ def review_alert(alert_id:int,data:ReviewIn,x_demo_role: str | None = Header(def
 
 @app.get("/api/interventions")
 def list_interventions(x_demo_role: str | None = Header(default=None)):
-    require_role(x_demo_role, {"Welfare Officer"})
+    require_role(x_demo_role, {"Welfare Officer", "Commander"})
+    if x_demo_role == "Commander": return []
     conn=connect()
     rows=[dict(r) for r in conn.execute("SELECT * FROM interventions ORDER BY id DESC")]
     conn.close()
@@ -276,7 +282,8 @@ def create_followup(data:FollowupIn,x_demo_role: str | None = Header(default=Non
 
 @app.get("/api/followups")
 def list_followups(x_demo_role: str | None = Header(default=None)):
-    require_role(x_demo_role, {"Welfare Officer"})
+    require_role(x_demo_role, {"Welfare Officer", "Commander"})
+    if x_demo_role == "Commander": return []
     conn=connect()
     rows=[dict(r) for r in conn.execute("SELECT * FROM followups ORDER BY id DESC")]
     conn.close()
