@@ -52,7 +52,7 @@ function App(){
   <div className="layout">
    <aside className={mobile?'sidebar open':'sidebar'}><div className="side-label">WORKSPACE</div>{nav.map(([key,label,Icon])=><button key={key} className={page===key?'nav active':'nav'} onClick={()=>{setPage(key);setMobile(false)}}><Icon size={18}/>{label}</button>)}<div className="side-bottom"><div className="privacy-mini"><LockKeyhole size={16}/><div><b>Privacy first</b><small>Welfare use only</small></div></div><button className="logout"><LogOut size={16}/> Sign out</button></div></aside>
    <main className="main">
-    {page==='dashboard'&&<Dashboard stats={stats} personnel={personnel} role={role} onAssessment={()=>setPage('assessment')} onSelect={setSelected}/>}
+    {page==='dashboard'&&<Dashboard stats={stats} personnel={personnel} role={role} onAssessment={()=>setPage('assessment')} onSelect={setSelected} onPersonnel={()=>setPage('personnel')} alerts={alerts}/>}
     {page==='assessment'&&<Assessment form={form} setForm={setForm} submit={submit} submitted={submitted}/>}
     {page==='personnel'&&<Personnel personnel={personnel} onSelect={setSelected}/>}
     {page==='privacy'&&<Privacy role={role}/>}
