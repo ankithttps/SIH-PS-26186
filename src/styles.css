@@ -135,3 +135,20 @@
 .quickstat.redbg{background:linear-gradient(135deg,#fff2f2,#ffe8e8)}
 .quickstat.purplebg{background:linear-gradient(135deg,#f7f2ff,#eee8ff)}
 @media(max-width:700px){.workspace-page{padding:15px}}
+
+
+/* Workspace strong color treatment */
+.workspace-page .workspace-action{border-width:1px!important}
+.workspace-page .workspace-action.blue{background:#e8f2ff!important;border-color:#a9cdf7!important}
+.workspace-page .workspace-action.green{background:#e8f7ee!important;border-color:#addcbe!important}
+.workspace-page .workspace-action.purple{background:#f0eaff!important;border-color:#cbb8f3!important}
+.workspace-page .workspace-action.orange{background:#fff0dc!important;border-color:#f0c991!important}
+.workspace-page .workspace-action.blue .wa-icon{background:#c8e1ff!important;color:#1768c8!important}
+.workspace-page .workspace-action.green .wa-icon{background:#c9ead7!important;color:#16875b!important}
+.workspace-page .workspace-action.purple .wa-icon{background:#ddceff!important;color:#6541c6!important}
+.workspace-page .workspace-action.orange .wa-icon{background:#ffe0b3!important;color:#bd6b10!important}
+.workspace-page .quickstat.bluebg{background:#e7f2ff!important;border-color:#b9d8fa!important}
+.workspace-page .quickstat.greenbg{background:#e8f7ef!important;border-color:#b8e1c8!important}
+.workspace-page .quickstat.redbg{background:#ffebeb!important;border-color:#f2bcbc!important}
+.workspace-page .quickstat.purplebg{background:#f0eaff!important;border-color:#d1c0f4!important}
+.workspace-page .workspace-note{background:#edf5ff!important;border-color:#c9def5!important}
