@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 from pathlib import Path
 import sqlite3
+import secrets
 
 from fastapi import FastAPI, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
@@ -62,16 +63,38 @@ def init_db():
       id INTEGER PRIMARY KEY AUTOINCREMENT, role TEXT NOT NULL,
       action TEXT NOT NULL, created_at TEXT NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS demo_users (
+      username TEXT PRIMARY KEY, role TEXT NOT NULL, password TEXT NOT NULL, person_id TEXT
+    );
+    CREATE TABLE IF NOT EXISTS sessions (
+      token TEXT PRIMARY KEY, username TEXT NOT NULL, role TEXT NOT NULL, person_id TEXT, created_at TEXT NOT NULL
+    );
     """)
     if conn.execute("SELECT COUNT(*) AS n FROM personnel").fetchone()["n"] == 0:
         seed = seed_personnel_rows()
         conn.executemany("INSERT INTO personnel VALUES (?,?,?,?,?,?,?,?,?,?)", seed)
+    users = [
+      ("welfare.demo", "Welfare Officer", "welfare123", None),
+      ("commander.demo", "Commander", "command123", None),
+      ("personnel.demo", "Personnel", "personnel123", "CR-1042"),
+    ]
+    conn.executemany("INSERT OR IGNORE INTO demo_users(username,role,password,person_id) VALUES (?,?,?,?)", users)
     conn.commit()
     conn.close()
 
 @app.on_event("startup")
 def startup():
     init_db()
+
+class LoginIn(BaseModel):
+    username: str
+    password: str
+
+class SessionOut(BaseModel):
+    token: str
+    username: str
+    role: str
+    person_id: str | None = None
 
 class CheckinIn(BaseModel):
     person_id: str = "CR-1042"
@@ -105,13 +128,49 @@ class AuditEventIn(BaseModel):
 VALID_ROLES = {"Welfare Officer", "Commander", "Personnel"}
 DEMO_PERSON_ID = "CR-1042"
 
-def require_role(role: str | None, allowed: set[str]):
-    if role not in VALID_ROLES: raise HTTPException(401, "Valid demo role required")
-    if role not in allowed: raise HTTPException(403, "Role is not authorized for this action")
+def session_context(authorization: str | None):
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(401, "Authenticated session required")
+    token = authorization.split(" ", 1)[1].strip()
+    conn = connect()
+    row = conn.execute("SELECT username,role,person_id FROM sessions WHERE token=?", (token,)).fetchone()
+    conn.close()
+    if not row: raise HTTPException(401, "Invalid or expired session")
+    return dict(row)
 
-def require_person_scope(person_id: str, role: str | None):
-    require_role(role, {"Welfare Officer", "Personnel"})
-    if role == "Personnel" and person_id != DEMO_PERSON_ID: raise HTTPException(403, "Personnel can access only their own demo record")
+def require_role(role: str | None, allowed: set[str], authorization: str | None = None):
+    ctx = session_context(authorization)
+    if role != ctx["role"] or role not in VALID_ROLES: raise HTTPException(403, "Session role mismatch")
+    if role not in allowed: raise HTTPException(403, "Role is not authorized for this action")
+    return ctx
+
+def require_person_scope(person_id: str, role: str | None, authorization: str | None = None):
+    ctx = require_role(role, {"Welfare Officer", "Personnel"}, authorization)
+    if role == "Personnel" and person_id != ctx["person_id"]: raise HTTPException(403, "Personnel can access only their own record")
+    return ctx
+
+@app.post("/api/auth/login", response_model=SessionOut)
+def login(data: LoginIn):
+    conn=connect()
+    row=conn.execute("SELECT username,role,password,person_id FROM demo_users WHERE username=?", (data.username.strip(),)).fetchone()
+    if not row or not secrets.compare_digest(row["password"], data.password):
+        conn.close()
+        raise HTTPException(401, "Invalid demo credentials")
+    token=secrets.token_urlsafe(32)
+    conn.execute("INSERT INTO sessions(token,username,role,person_id,created_at) VALUES (?,?,?,?,?)",(token,row["username"],row["role"],row["person_id"],now()))
+    conn.commit(); conn.close()
+    return {"token":token,"username":row["username"],"role":row["role"],"person_id":row["person_id"]}
+
+@app.post("/api/auth/logout")
+def logout(authorization: str | None = Header(default=None)):
+    session_context(authorization)
+    token=authorization.split(" ",1)[1].strip()
+    conn=connect(); conn.execute("DELETE FROM sessions WHERE token=?",(token,)); conn.commit(); conn.close()
+    return {"ok":True}
+
+@app.get("/api/auth/me")
+def auth_me(authorization: str | None = Header(default=None)):
+    return session_context(authorization)
 
 def seed_personnel_rows():
     return [
@@ -141,8 +200,8 @@ def health():
     return {"status":"ok","service":"rakshakwell-api","demo":True}
 
 @app.get("/api/audit-events")
-def list_audit_events(x_demo_role: str | None = Header(default=None)):
-    require_role(x_demo_role, {"Welfare Officer", "Commander"})
+def list_audit_events(x_demo_role: str | None = Header(default=None), authorization: str | None = Header(default=None)):
+    require_role(x_demo_role, {"Welfare Officer", "Commander"}, authorization)
     conn = connect()
     rows = [dict(r) for r in conn.execute("SELECT * FROM audit_events ORDER BY id DESC LIMIT 50")]
     conn.close()
@@ -164,7 +223,7 @@ def create_audit_event(data: AuditEventIn, x_demo_role: str | None = Header(defa
 
 @app.get("/api/personnel")
 def list_personnel(x_demo_role: str | None = Header(default=None)):
-    require_role(x_demo_role, {"Welfare Officer", "Commander", "Personnel"})
+    require_role(x_demo_role, {"Welfare Officer", "Commander", "Personnel"}, authorization)
     conn=connect()
     if x_demo_role == "Commander":
         rows=[dict(r) for r in conn.execute("SELECT unit,unit AS id,'Unit aggregate' AS name,'Aggregated' AS deployment,ROUND(AVG(leave),1) AS leave,ROUND(AVG(duty),1) AS duty,ROUND(AVG(wellness),0) AS wellness,CASE WHEN SUM(CASE WHEN risk='High' THEN 1 ELSE 0 END)>0 THEN 'High' WHEN SUM(CASE WHEN risk='Elevated' THEN 1 ELSE 0 END)>0 THEN 'Elevated' ELSE 'Low' END AS risk,'Aggregated' AS last,COUNT(*) AS checkins FROM personnel GROUP BY unit ORDER BY unit")]
@@ -177,7 +236,7 @@ def list_personnel(x_demo_role: str | None = Header(default=None)):
 
 @app.get("/api/personnel/{person_id}")
 def get_personnel(person_id: str, x_demo_role: str | None = Header(default=None)):
-    require_person_scope(person_id, x_demo_role)
+    require_person_scope(person_id, x_demo_role, authorization)
     conn=connect()
     row=conn.execute("SELECT * FROM personnel WHERE id=?", (person_id,)).fetchone()
     if not row:
@@ -193,7 +252,7 @@ def get_personnel(person_id: str, x_demo_role: str | None = Header(default=None)
 
 @app.post("/api/checkins")
 def create_checkin(data: CheckinIn, x_demo_role: str | None = Header(default=None)):
-    require_person_scope(data.person_id, x_demo_role)
+    require_person_scope(data.person_id, x_demo_role, authorization)
     conn=connect()
     person=conn.execute("SELECT * FROM personnel WHERE id=?", (data.person_id,)).fetchone()
     if not person:
@@ -233,7 +292,7 @@ def list_alerts(x_demo_role: str | None = Header(default=None)):
 
 @app.post("/api/alerts/{alert_id}/review")
 def review_alert(alert_id:int,data:ReviewIn,x_demo_role: str | None = Header(default=None)):
-    require_role(x_demo_role, {"Welfare Officer"})
+    require_role(x_demo_role, {"Welfare Officer"}, authorization)
     data.role = x_demo_role
     conn=connect()
     cur=conn.execute(
