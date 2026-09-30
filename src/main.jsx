@@ -29,7 +29,7 @@ function calculateRisk({sleep,mood,energy,workload,duty,leave,deployment}){
 }
 function App(){
  const [page,setPage]=useState('dashboard');
- const [signedIn,setSignedIn]=useState(true);
+ const [signedIn,setSignedIn]=useState(()=>localStorage.getItem('rakshakwell_signed_in')!=='false');
  const [mobile,setMobile]=useState(false);
  const [role,setRole]=useState('Welfare Officer');
  const [personnel,setPersonnel]=useState(initialPersonnel.map(x=>({...x,pattern:getPattern(x.history)})));
@@ -40,11 +40,13 @@ function App(){
  const stats=useMemo(()=>({total:visiblePersonnel.length,elevated:visiblePersonnel.filter(x=>x.risk==='Elevated').length,high:visiblePersonnel.filter(x=>x.risk==='High').length,avg:Math.round(visiblePersonnel.reduce((a,b)=>a+b.wellness,0)/visiblePersonnel.length),checkins:Math.round(visiblePersonnel.reduce((a,b)=>a+b.checkins,0)/visiblePersonnel.length)}),[visiblePersonnel]);
  const nav=role==='Personnel'?[['dashboard','Dashboard',LayoutDashboard],['assessment','Wellness Check-in',ClipboardCheck],['workspace','Workspace',FolderOpen],['privacy','Privacy & Access',LockKeyhole]]:[['dashboard','Dashboard',LayoutDashboard],['assessment','Wellness Check-in',ClipboardCheck],['personnel','Personnel',Users],['workspace','Workspace',FolderOpen],['privacy','Privacy & Access',LockKeyhole]];
  function handleSignOut(){
+   localStorage.setItem('rakshakwell_signed_in','false');
    setSignedIn(false);
    setMobile(false);
    setSelected(null);
  }
  function handleSignIn(){
+   localStorage.setItem('rakshakwell_signed_in','true');
    setSignedIn(true);
    setPage('dashboard');
  }
