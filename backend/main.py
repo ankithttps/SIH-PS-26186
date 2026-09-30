@@ -58,6 +58,10 @@ def init_db():
       action TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'Pending',
       outcome TEXT NOT NULL DEFAULT 'Awaiting follow-up', created_at TEXT NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS audit_events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, role TEXT NOT NULL,
+      action TEXT NOT NULL, created_at TEXT NOT NULL
+    );
     """)
     if conn.execute("SELECT COUNT(*) AS n FROM personnel").fetchone()["n"] == 0:
         seed = seed_personnel_rows()
@@ -94,6 +98,10 @@ class FollowupIn(BaseModel):
 class FollowupOutcomeIn(BaseModel):
     outcome: str
 
+class AuditEventIn(BaseModel):
+    role: str = "Welfare Officer"
+    action: str
+
 def seed_personnel_rows():
     return [
       ("CR-1042","A. Sharma","Alpha Unit","High-intensity",2,9,62,"Elevated","Today",8),
@@ -120,6 +128,25 @@ def calculate_wellness(data, person):
 @app.get("/health")
 def health():
     return {"status":"ok","service":"rakshakwell-api","demo":True}
+
+@app.get("/api/audit-events")
+def list_audit_events():
+    conn = connect()
+    rows = [dict(r) for r in conn.execute("SELECT * FROM audit_events ORDER BY id DESC LIMIT 50")]
+    conn.close()
+    return rows
+
+@app.post("/api/audit-events")
+def create_audit_event(data: AuditEventIn):
+    conn = connect()
+    cur = conn.execute(
+      "INSERT INTO audit_events(role,action,created_at) VALUES (?,?,?)",
+      (data.role, data.action, now())
+    )
+    conn.commit()
+    row = conn.execute("SELECT * FROM audit_events WHERE id=?", (cur.lastrowid,)).fetchone()
+    conn.close()
+    return dict(row)
 
 @app.get("/api/personnel")
 def list_personnel():
@@ -249,6 +276,7 @@ def reset_demo():
     conn.execute("DELETE FROM alerts")
     conn.execute("DELETE FROM interventions")
     conn.execute("DELETE FROM followups")
+    conn.execute("DELETE FROM audit_events")
     conn.execute("DELETE FROM personnel")
     conn.executemany("INSERT INTO personnel VALUES (?,?,?,?,?,?,?,?,?,?)", seed_personnel_rows())
     conn.commit()
