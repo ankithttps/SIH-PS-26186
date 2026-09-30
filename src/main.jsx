@@ -10,7 +10,7 @@ const initialPersonnel=[
  {id:'CR-1321',name:'P. Verma',unit:'Delta Unit',deployment:'Routine',leave:4,duty:8,wellness:76,risk:'Low',last:'2 days ago',trend:[71,72,74,75,76],checkins:10}
 ];
 
-function riskFromScore(score){if(score>=75)return ['High','high'];if(score>=50)return ['Elevated','medium'];return ['Low','low'];}
+function riskFromScore(wellness){if(wellness<=40)return ['High','high'];if(wellness<=65)return ['Elevated','medium'];return ['Low','low'];}
 function App(){
  const [page,setPage]=useState('dashboard');
  const [mobile,setMobile]=useState(false);
@@ -47,7 +47,7 @@ function App(){
  </div>
 }
 
-function Dashboard({stats,personnel,role,onAssessment,onSelect}){
+function Dashboard({stats,personnel,role,onAssessment,onSelect,onPersonnel}){
  const low=personnel.filter(p=>p.risk==='Low').length, elevated=stats.elevated, high=stats.high;
  return <>
   <div className="hero"><div><div className="eyebrow">WELFARE OPERATIONS • LIVE DEMO</div><h1>{role==='Personnel'?'My Wellness Overview':'Personnel Wellness Dashboard'}</h1><p>{role==='Personnel'?'Review your own wellness signals and complete a voluntary check-in.':'Early indicators, welfare trends and intervention signals — designed for supportive action, not disciplinary decisions.'}</p></div><button className="primary" onClick={onAssessment}><ClipboardCheck size={17}/> Start wellness check-in</button></div>
@@ -57,7 +57,7 @@ function Dashboard({stats,personnel,role,onAssessment,onSelect}){
    <div className="card trendcard"><div className="cardhead"><div><h2>Wellness trend</h2><p>Recent illustrative check-in pattern</p></div><div className="legend"><span><i/>Current</span></div></div><TrendChart personnel={personnel}/></div>
    <div className="card distribution"><div className="cardhead"><div><h2>Signal distribution</h2><p>Current demo risk signals</p></div><BarChart3 size={18} className="mutedicon"/></div><div className="distrows"><DistRow label="Low" count={low} total={personnel.length} type="low"/><DistRow label="Elevated" count={elevated} total={personnel.length} type="elevated"/><DistRow label="High" count={high} total={personnel.length} type="high"/></div><div className="signalnote"><Info size={14}/> Signals indicate review priority, not diagnosis.</div></div>
   </section>
-  <section className="grid2"><div className="card"><div className="cardhead"><div><h2>Welfare signal overview</h2><p>Click a person to inspect demo context</p></div><button className="textbtn" onClick={()=>document.querySelector('.nav:nth-child(3)')?.click()}>View all <ChevronRight size={15}/></button></div>{personnel.map(p=><button className="personrow rowbutton" key={p.id} onClick={()=>onSelect(p)}><PersonRow p={p}/></button>)}</div><div className="card"><div className="cardhead"><div><h2>Recommended actions</h2><p>Supportive next steps</p></div></div><Action icon={Clock3} title="Review duty load" text="2 personnel show extended duty patterns."/><Action icon={CalendarDays} title="Consider leave discussion" text="1 person has a low leave frequency signal."/><Action icon={HeartPulse} title="Offer confidential check-in" text="2 personnel may benefit from a welfare conversation."/><div className="safe"><CheckCircle2 size={17}/><span>Recommendations require human review before any action.</span></div></div></section>
+  <section className="grid2"><div className="card"><div className="cardhead"><div><h2>Welfare signal overview</h2><p>Click a person to inspect demo context</p></div><button className="textbtn" onClick={onPersonnel}>View all <ChevronRight size={15}/></button></div>{personnel.map(p=><button className="personrow rowbutton" key={p.id} onClick={()=>onSelect(p)}><PersonRow p={p}/></button>)}</div><div className="card"><div className="cardhead"><div><h2>Recommended actions</h2><p>Supportive next steps</p></div></div><Action icon={Clock3} title="Review duty load" text="2 personnel show extended duty patterns."/><Action icon={CalendarDays} title="Consider leave discussion" text="1 person has a low leave frequency signal."/><Action icon={HeartPulse} title="Offer confidential check-in" text="2 personnel may benefit from a welfare conversation."/><div className="safe"><CheckCircle2 size={17}/><span>Recommendations require human review before any action.</span></div></div></section>
   <div className="footer-note"><LockKeyhole size={15}/> Demo data only • No medical diagnosis • Access is role-based</div>
  </>;
 }
