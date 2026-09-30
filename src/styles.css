@@ -44,3 +44,5 @@
 .resetbtn{white-space:nowrap;background:#fff}
 .demonote{margin:0 18px 17px;padding:9px;background:#f7f9fb;border:1px solid #e7ebf0;border-radius:8px;display:flex;gap:6px;align-items:flex-start;color:#748091;font-size:9px}
 @media(max-width:700px){.demobody{align-items:flex-start;flex-direction:column}.resetbtn{width:100%}}
+
+.reviewmeta{display:block;font-size:8px;color:#718070;margin-top:3px;font-weight:700}
