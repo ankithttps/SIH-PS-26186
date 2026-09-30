@@ -5,3 +5,26 @@
 /* Predictive pattern intelligence */
 .rowbadges,.tablebadges{display:flex;flex-direction:column;align-items:flex-start;gap:5px}.patternbadge{display:inline-flex;align-items:center;padding:3px 6px;border-radius:999px;font-size:8px;font-weight:800;white-space:nowrap}.patternbadge.rising{background:#fff0e6;color:#a45520}.patternbadge.persistent{background:#fdeaea;color:#a13c3c}.patternbadge.improving{background:#eaf5ee;color:#39734f}.patternbox{display:flex;gap:9px;align-items:flex-start;margin-top:11px;padding:11px;background:#f8f6ef;border:1px solid #ece6d8;border-radius:9px;color:#675f49}.patternbox b,.patternbox span{display:block}.patternbox b{font-size:10px}.patternbox span{font-size:9px;margin-top:2px;color:#7c7460}
 .interventioncard{margin-bottom:15px}.workflow{display:flex;align-items:center;padding:4px 18px 16px}.workflowstep{display:flex;align-items:center;gap:7px;color:#8b95a3;font-size:9px;white-space:nowrap}.workflowstep b{width:25px;height:25px;border-radius:50%;display:grid;place-items:center;background:#edf0f3;font-size:9px}.workflowstep.done,.workflowstep.active{color:#426360}.workflowstep.done b,.workflowstep.active b{background:#dfece9;color:#426360}.workflowstep.active b{box-shadow:0 0 0 3px #eef5f3}.workflowline{height:1px;background:#e2e7eb;flex:1;margin:0 8px}.interventionchoices{border-top:1px solid #edf0f4}.interventionitem{display:flex;align-items:center;gap:12px;padding:12px 18px;border-bottom:1px solid #edf0f4}.interventionitem>div:first-child{flex:1}.interventionitem b,.interventionitem span{display:block}.interventionitem b{font-size:11px}.interventionitem span{font-size:9px;color:#87919f;margin-top:2px}.choicebuttons{display:flex;gap:6px}.softbtn{border:1px solid #d9e5e2;background:#f4f8f7;color:#466762;border-radius:7px;padding:7px 9px;font-size:9px;font-weight:700;cursor:pointer}.followups{padding:11px 18px;background:#f7faf9}.followups>b{font-size:10px}.followups div{display:flex;justify-content:space-between;gap:10px;margin-top:7px;font-size:9px;color:#52605f}.followups small{color:#929ba5}@media(max-width:700px){.workflow{overflow:auto}.interventionitem{align-items:flex-start;flex-direction:column}.choicebuttons{width:100%;flex-wrap:wrap}.softbtn{flex:1}.workflowstep span{display:none}}
+
+/* Follow-up & outcome tracking */
+.outcomes{border-top:1px solid #e7ebf0;background:#fbfcfd}
+.outcomehead{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;padding:13px 18px;border-bottom:1px solid #edf0f4}
+.outcomehead b,.outcomehead span{display:block}
+.outcomehead b{font-size:10px;color:#26344a}
+.outcomehead span{font-size:9px;color:#87919f;margin-top:2px}
+.outcomepill{background:#fff3df;border:1px solid #f0e0c5;color:#9b661f;padding:4px 7px;border-radius:999px;font-size:8px!important;font-weight:800;white-space:nowrap}
+.outcomeitem{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:11px 18px;border-bottom:1px solid #edf0f4}
+.outcomename{flex:1}
+.outcomename b,.outcomename span{display:block}
+.outcomename b{font-size:10px}
+.outcomename span{font-size:9px;color:#87919f;margin-top:2px}
+.outcomebuttons{display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end}
+.outcome{border:1px solid #dbe2e8;background:#fff;border-radius:7px;padding:6px 8px;font-size:8px;font-weight:800;cursor:pointer}
+.outcome.improved{color:#39734f;background:#f1f8f3;border-color:#dbece0}
+.outcome.stable{color:#53667f;background:#f4f7fa}
+.outcome.review{color:#a45520;background:#fff5ed;border-color:#f0dfd2}
+.outcomestatus{display:inline-flex;align-items:center;gap:4px;border-radius:999px;padding:5px 8px;font-size:8px;font-weight:800;white-space:nowrap}
+.outcomestatus.improved{background:#eaf5ee;color:#39734f}
+.outcomestatus.stable{background:#eef2f6;color:#53667f}
+.outcomestatus.further-review-required{background:#fff0e6;color:#a45520}
+@media(max-width:700px){.outcomeitem{align-items:flex-start;flex-direction:column}.outcomebuttons{width:100%;justify-content:flex-start}.outcome{flex:1}}
