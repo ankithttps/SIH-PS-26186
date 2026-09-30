@@ -60,12 +60,7 @@ def init_db():
     );
     """)
     if conn.execute("SELECT COUNT(*) AS n FROM personnel").fetchone()["n"] == 0:
-        seed = [
-          ("CR-1042","A. Sharma","Alpha Unit","High-intensity",2,9,62,"Elevated","Today",8),
-          ("CR-1187","R. Singh","Bravo Unit","Routine",5,7,81,"Low","Yesterday",11),
-          ("CR-1214","V. Kumar","Charlie Unit","Extended",1,11,48,"High","Today",7),
-          ("CR-1321","P. Verma","Delta Unit","Routine",4,8,76,"Low","2 days ago",10)
-        ]
+        seed = seed_personnel_rows()
         conn.executemany("INSERT INTO personnel VALUES (?,?,?,?,?,?,?,?,?,?)", seed)
     conn.commit()
     conn.close()
@@ -95,8 +90,18 @@ class FollowupIn(BaseModel):
     name: str
     action: str
 
+
 class FollowupOutcomeIn(BaseModel):
     outcome: str
+
+def seed_personnel_rows():
+    return [
+      ("CR-1042","A. Sharma","Alpha Unit","High-intensity",2,9,62,"Elevated","Today",8),
+      ("CR-1187","R. Singh","Bravo Unit","Routine",5,7,81,"Low","Yesterday",11),
+      ("CR-1214","V. Kumar","Charlie Unit","Extended",1,11,48,"High","Today",7),
+      ("CR-1321","P. Verma","Delta Unit","Routine",4,8,76,"Low","2 days ago",10)
+    ]
+
 
 def risk_from_score(wellness):
     if wellness <= 40: return "High"
@@ -236,6 +241,21 @@ def followup_outcome(followup_id:int,data:FollowupOutcomeIn):
     row=conn.execute("SELECT * FROM followups WHERE id=?", (followup_id,)).fetchone()
     conn.close()
     return dict(row)
+
+@app.post("/api/demo/reset")
+def reset_demo():
+    conn = connect()
+    conn.execute("DELETE FROM checkins")
+    conn.execute("DELETE FROM alerts")
+    conn.execute("DELETE FROM interventions")
+    conn.execute("DELETE FROM followups")
+    conn.execute("DELETE FROM personnel")
+    conn.executemany("INSERT INTO personnel VALUES (?,?,?,?,?,?,?,?,?,?)", seed_personnel_rows())
+    conn.commit()
+    personnel = [dict(r) for r in conn.execute("SELECT * FROM personnel ORDER BY id")]
+    conn.close()
+    return {"personnel": personnel, "alerts": [], "interventions": [], "followups": [], "demo": True}
+
 
 @app.get("/api/analytics/units")
 def unit_analytics():
