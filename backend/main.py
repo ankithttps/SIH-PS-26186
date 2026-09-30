@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 import sqlite3
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
@@ -102,6 +102,17 @@ class AuditEventIn(BaseModel):
     role: str = "Welfare Officer"
     action: str
 
+VALID_ROLES = {"Welfare Officer", "Commander", "Personnel"}
+DEMO_PERSON_ID = "CR-1042"
+
+def require_role(role: str | None, allowed: set[str]):
+    if role not in VALID_ROLES: raise HTTPException(401, "Valid demo role required")
+    if role not in allowed: raise HTTPException(403, "Role is not authorized for this action")
+
+def require_person_scope(person_id: str, role: str | None):
+    require_role(role, {"Welfare Officer", "Personnel"})
+    if role == "Personnel" and person_id != DEMO_PERSON_ID: raise HTTPException(403, "Personnel can access only their own demo record")
+
 def seed_personnel_rows():
     return [
       ("CR-1042","A. Sharma","Alpha Unit","High-intensity",2,9,62,"Elevated","Today",8),
@@ -130,14 +141,17 @@ def health():
     return {"status":"ok","service":"rakshakwell-api","demo":True}
 
 @app.get("/api/audit-events")
-def list_audit_events():
+def list_audit_events(x_demo_role: str | None = Header(default=None)):
+    require_role(x_demo_role, {"Welfare Officer", "Commander"})
     conn = connect()
     rows = [dict(r) for r in conn.execute("SELECT * FROM audit_events ORDER BY id DESC LIMIT 50")]
     conn.close()
     return rows
 
 @app.post("/api/audit-events")
-def create_audit_event(data: AuditEventIn):
+def create_audit_event(data: AuditEventIn, x_demo_role: str | None = Header(default=None)):
+    require_role(x_demo_role, {"Welfare Officer", "Commander"})
+    data.role = x_demo_role
     conn = connect()
     cur = conn.execute(
       "INSERT INTO audit_events(role,action,created_at) VALUES (?,?,?)",
@@ -149,14 +163,21 @@ def create_audit_event(data: AuditEventIn):
     return dict(row)
 
 @app.get("/api/personnel")
-def list_personnel():
+def list_personnel(x_demo_role: str | None = Header(default=None)):
+    require_role(x_demo_role, {"Welfare Officer", "Commander", "Personnel"})
     conn=connect()
-    rows=[dict(r) for r in conn.execute("SELECT * FROM personnel ORDER BY id")]
+    if x_demo_role == "Commander":
+        rows=[dict(r) for r in conn.execute("SELECT unit,ROUND(AVG(wellness),0) AS average_wellness,ROUND(AVG(duty),1) AS average_duty_hours,SUM(CASE WHEN risk!='Low' THEN 1 ELSE 0 END) AS attention_signals,COUNT(*) AS personnel_count FROM personnel GROUP BY unit ORDER BY unit")]
+    elif x_demo_role == "Personnel":
+        rows=[dict(r) for r in conn.execute("SELECT * FROM personnel WHERE id=?", (DEMO_PERSON_ID,))]
+    else:
+        rows=[dict(r) for r in conn.execute("SELECT * FROM personnel ORDER BY id")]
     conn.close()
     return rows
 
 @app.get("/api/personnel/{person_id}")
-def get_personnel(person_id: str):
+def get_personnel(person_id: str, x_demo_role: str | None = Header(default=None)):
+    require_person_scope(person_id, x_demo_role)
     conn=connect()
     row=conn.execute("SELECT * FROM personnel WHERE id=?", (person_id,)).fetchone()
     if not row:
@@ -171,7 +192,8 @@ def get_personnel(person_id: str):
     return result
 
 @app.post("/api/checkins")
-def create_checkin(data: CheckinIn):
+def create_checkin(data: CheckinIn, x_demo_role: str | None = Header(default=None)):
+    require_person_scope(data.person_id, x_demo_role)
     conn=connect()
     person=conn.execute("SELECT * FROM personnel WHERE id=?", (data.person_id,)).fetchone()
     if not person:
@@ -197,14 +219,17 @@ def create_checkin(data: CheckinIn):
     return {"wellness":wellness,"risk":risk,"alert_id":alert_id,"created_at":timestamp,"demo":True}
 
 @app.get("/api/alerts")
-def list_alerts():
+def list_alerts(x_demo_role: str | None = Header(default=None)):
+    require_role(x_demo_role, {"Welfare Officer"})
     conn=connect()
     rows=[dict(r) for r in conn.execute("SELECT * FROM alerts ORDER BY id DESC")]
     conn.close()
     return rows
 
 @app.post("/api/alerts/{alert_id}/review")
-def review_alert(alert_id:int,data:ReviewIn):
+def review_alert(alert_id:int,data:ReviewIn,x_demo_role: str | None = Header(default=None)):
+    require_role(x_demo_role, {"Welfare Officer"})
+    data.role = x_demo_role
     conn=connect()
     cur=conn.execute(
       "UPDATE alerts SET status='Reviewed',reviewed_by=?,reviewed_at=? WHERE id=?",
@@ -218,14 +243,16 @@ def review_alert(alert_id:int,data:ReviewIn):
     return dict(row)
 
 @app.get("/api/interventions")
-def list_interventions():
+def list_interventions(x_demo_role: str | None = Header(default=None)):
+    require_role(x_demo_role, {"Welfare Officer"})
     conn=connect()
     rows=[dict(r) for r in conn.execute("SELECT * FROM interventions ORDER BY id DESC")]
     conn.close()
     return rows
 
 @app.post("/api/interventions")
-def create_intervention(data:InterventionIn):
+def create_intervention(data:InterventionIn,x_demo_role: str | None = Header(default=None)):
+    require_person_scope(data.person_id, x_demo_role)
     conn=connect()
     cur=conn.execute(
       "INSERT INTO interventions(person_id,name,action,created_at) VALUES (?,?,?,?)",
@@ -236,7 +263,8 @@ def create_intervention(data:InterventionIn):
     return dict(row)
 
 @app.post("/api/followups")
-def create_followup(data:FollowupIn):
+def create_followup(data:FollowupIn,x_demo_role: str | None = Header(default=None)):
+    require_person_scope(data.person_id, x_demo_role)
     conn=connect()
     cur=conn.execute(
       "INSERT INTO followups(person_id,name,action,created_at) VALUES (?,?,?,?)",
@@ -247,14 +275,16 @@ def create_followup(data:FollowupIn):
     return dict(row)
 
 @app.get("/api/followups")
-def list_followups():
+def list_followups(x_demo_role: str | None = Header(default=None)):
+    require_role(x_demo_role, {"Welfare Officer"})
     conn=connect()
     rows=[dict(r) for r in conn.execute("SELECT * FROM followups ORDER BY id DESC")]
     conn.close()
     return rows
 
 @app.post("/api/followups/{followup_id}/outcome")
-def followup_outcome(followup_id:int,data:FollowupOutcomeIn):
+def followup_outcome(followup_id:int,data:FollowupOutcomeIn,x_demo_role: str | None = Header(default=None)):
+    require_role(x_demo_role, {"Welfare Officer"})
     if data.outcome not in {"Improved","Stable","Further review required"}:
         raise HTTPException(400,"Invalid follow-up outcome")
     conn=connect()
@@ -286,7 +316,8 @@ def reset_demo():
 
 
 @app.get("/api/analytics/units")
-def unit_analytics():
+def unit_analytics(x_demo_role: str | None = Header(default=None)):
+    require_role(x_demo_role, {"Welfare Officer", "Commander"})
     conn=connect()
     rows=conn.execute(
       "SELECT unit,ROUND(AVG(wellness),0) AS average_wellness,ROUND(AVG(duty),1) AS average_duty_hours,SUM(CASE WHEN risk!='Low' THEN 1 ELSE 0 END) AS attention_signals FROM personnel GROUP BY unit ORDER BY unit"
