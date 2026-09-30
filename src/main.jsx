@@ -101,7 +101,7 @@ function App(){
    setActivity([]);
    setForm({sleep:3,mood:3,energy:3,workload:3,concern:''});
  }
- async async function submit(){
+ async function submit(){
    const current=personnel[0];
    const result=calculateRisk({...form,duty:current.duty,leave:current.leave,deployment:current.deployment});
    try{
