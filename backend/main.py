@@ -6,6 +6,9 @@ import secrets
 import json
 import re
 import os
+import base64
+import hashlib
+import hmac
 
 from fastapi import FastAPI, HTTPException, Header, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
@@ -24,8 +27,9 @@ except Exception:
     Image = ImageOps = ImageFilter = None
 
 BASE_DIR = Path(__file__).resolve().parent
-DB_PATH = BASE_DIR / "rakshakwell.db"
-UPLOAD_DIR = BASE_DIR / "uploads" / "medical_reports"
+RUNTIME_DIR = Path("/tmp") if os.getenv("VERCEL") else BASE_DIR
+DB_PATH = RUNTIME_DIR / "rakshakwell.db"
+UPLOAD_DIR = RUNTIME_DIR / "uploads" / "medical_reports"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 app = FastAPI(
@@ -154,13 +158,51 @@ class AuditEventIn(BaseModel):
 VALID_ROLES = {"Welfare Officer", "Commander", "Personnel"}
 DEMO_PERSON_ID = "CR-1042"
 
+DEMO_USERS = {
+    "welfare.demo": {"role": "Welfare Officer", "password": "welfare123", "person_id": None},
+    "commander.demo": {"role": "Commander", "password": "command123", "person_id": None},
+    "personnel.demo": {"role": "Personnel", "password": "personnel123", "person_id": "CR-1042"},
+}
+DEMO_SESSION_SECRET = os.getenv("DEMO_SESSION_SECRET", "rakshakwell-demo-session-change-me").encode()
+
+def make_demo_token(username: str, role: str, person_id: str | None):
+    payload = json.dumps({"u": username, "r": role, "p": person_id, "v": 1}, separators=(",", ":")).encode()
+    encoded = base64.urlsafe_b64encode(payload).decode().rstrip("=")
+    signature = hmac.new(DEMO_SESSION_SECRET, encoded.encode(), hashlib.sha256).hexdigest()
+    return f"demo.{encoded}.{signature}"
+
+def demo_token_context(token: str):
+    if not token.startswith("demo."):
+        return None
+    parts = token.split(".")
+    if len(parts) != 3:
+        return None
+    encoded, signature = parts[1], parts[2]
+    expected = hmac.new(DEMO_SESSION_SECRET, encoded.encode(), hashlib.sha256).hexdigest()
+    if not hmac.compare_digest(signature, expected):
+        return None
+    try:
+        padding = "=" * (-len(encoded) % 4)
+        payload = json.loads(base64.urlsafe_b64decode((encoded + padding).encode()))
+        if payload.get("u") not in DEMO_USERS or payload.get("r") not in VALID_ROLES:
+            return None
+        return {"username": payload["u"], "role": payload["r"], "person_id": payload.get("p")}
+    except Exception:
+        return None
+
 def session_context(authorization: str | None):
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(401, "Authenticated session required")
     token = authorization.split(" ", 1)[1].strip()
-    conn = connect()
-    row = conn.execute("SELECT username,role,person_id FROM sessions WHERE token=?", (token,)).fetchone()
-    conn.close()
+    stateless = demo_token_context(token)
+    if stateless:
+        return stateless
+    try:
+        conn = connect()
+        row = conn.execute("SELECT username,role,person_id FROM sessions WHERE token=?", (token,)).fetchone()
+        conn.close()
+    except Exception:
+        row = None
     if not row: raise HTTPException(401, "Invalid or expired session")
     return dict(row)
 
@@ -177,15 +219,20 @@ def require_person_scope(person_id: str, role: str | None, authorization: str | 
 
 @app.post("/api/auth/login", response_model=SessionOut)
 def login(data: LoginIn):
-    conn=connect()
-    row=conn.execute("SELECT username,role,password,person_id FROM demo_users WHERE username=?", (data.username.strip(),)).fetchone()
-    if not row or not secrets.compare_digest(row["password"], data.password):
-        conn.close()
+    username = data.username.strip()
+    demo = DEMO_USERS.get(username)
+    if not demo or not secrets.compare_digest(demo["password"], data.password):
         raise HTTPException(401, "Invalid demo credentials")
-    token=secrets.token_urlsafe(32)
-    conn.execute("INSERT INTO sessions(token,username,role,person_id,created_at) VALUES (?,?,?,?,?)",(token,row["username"],row["role"],row["person_id"],now()))
-    conn.commit(); conn.close()
-    return {"token":token,"username":row["username"],"role":row["role"],"person_id":row["person_id"]}
+    token = make_demo_token(username, demo["role"], demo["person_id"])
+    try:
+        conn = connect()
+        conn.execute("INSERT INTO sessions(token,username,role,person_id,created_at) VALUES (?,?,?,?,?)",
+                     (token, username, demo["role"], demo["person_id"], now()))
+        conn.commit()
+        conn.close()
+    except Exception:
+        pass
+    return {"token":token,"username":username,"role":demo["role"],"person_id":demo["person_id"]}
 
 @app.post("/api/auth/logout")
 def logout(authorization: str | None = Header(default=None)):
