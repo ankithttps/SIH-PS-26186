@@ -78,7 +78,7 @@ def init_db():
       ("commander.demo", "Commander", "command123", None),
       ("personnel.demo", "Personnel", "personnel123", "CR-1042"),
     ]
-    conn.executemany("INSERT OR IGNORE INTO demo_users(username,role,password,person_id) VALUES (?,?,?,?)", users)
+    conn.executemany("INSERT OR REPLACE INTO demo_users(username,role,password,person_id) VALUES (?,?,?,?)", users)
     conn.commit()
     conn.close()
 
