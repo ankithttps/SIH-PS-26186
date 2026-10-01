@@ -297,7 +297,7 @@ function Dashboard({stats,personnel,role,onAssessment,onSelect,onPersonnel,onDas
   </button>
  </div>
  <div className="recommendationsafe"><ShieldCheck size={15}/><span>Recommendations are supportive prompts. Authorized human review is required before action.</span></div>
-</div>
+</div></section>
   <div className="footer-note"><LockKeyhole size={15}/> Demo data only • No medical diagnosis • Access is role-based</div>
  </>;
 }
