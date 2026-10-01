@@ -15,6 +15,12 @@ try:
     from pypdf import PdfReader
 except Exception:
     PdfReader = None
+try:
+    import pytesseract
+    from PIL import Image, ImageOps, ImageFilter
+except Exception:
+    pytesseract = None
+    Image = ImageOps = ImageFilter = None
 
 BASE_DIR = Path(__file__).resolve().parent
 DB_PATH = BASE_DIR / "rakshakwell.db"
@@ -217,50 +223,61 @@ def calculate_wellness(data, person):
 ALLOWED_REPORT_TYPES = {"application/pdf", "image/jpeg", "image/png"}
 MAX_REPORT_SIZE = 10 * 1024 * 1024
 
-def build_report_analysis(original_name: str, content_type: str, raw: bytes):
-    text = ""
+def extract_report_text(content_type: str, raw: bytes):
     if content_type == "application/pdf" and PdfReader:
         try:
             from io import BytesIO
             reader = PdfReader(BytesIO(raw))
-            text = "\n".join((page.extract_text() or "") for page in reader.pages)
+            return "\n".join((page.extract_text() or "") for page in reader.pages), "PDF text extraction"
         except Exception:
-            text = ""
+            return "", "PDF text extraction failed"
+    if content_type in {"image/jpeg", "image/png"} and pytesseract and Image:
+        try:
+            from io import BytesIO
+            image = Image.open(BytesIO(raw)).convert("L")
+            image = ImageOps.autocontrast(image)
+            image = image.resize((image.width * 2, image.height * 2))
+            image = image.filter(ImageFilter.SHARPEN)
+            text = pytesseract.image_to_string(image, config="--psm 6")
+            return text, "OCR (Tesseract)"
+        except Exception:
+            return "", "Image OCR failed"
+    return "", "OCR dependency unavailable"
+
+def build_report_analysis(original_name: str, content_type: str, raw: bytes):
+    text, method = extract_report_text(content_type, raw)
     cleaned = re.sub(r"\s+", " ", text).strip()
     lower = cleaned.lower()
     findings = []
-    keywords = {
-        "blood pressure": "Blood-pressure information was detected in the report.",
-        "hemoglobin": "Hemoglobin-related information was detected.",
-        "glucose": "Glucose-related information was detected.",
-        "sugar": "Blood-sugar related information was detected.",
-        "cholesterol": "Cholesterol-related information was detected.",
-        "thyroid": "Thyroid-related information was detected.",
-        "vitamin": "Vitamin-related information was detected.",
-        "medication": "Medication information was detected.",
-        "diagnosis": "A diagnosis section/reference was detected in the document.",
-        "cbc": "CBC/laboratory information was detected."
-    }
-    for key, message in keywords.items():
-        if key in lower: findings.append(message)
+    patterns = [
+        (r"blood pressure|\bbp\b", "Blood-pressure information detected."),
+        (r"hemoglobin|\bhb\b", "Hemoglobin-related information detected."),
+        (r"glucose|blood sugar|\bsugar\b", "Glucose/blood-sugar information detected."),
+        (r"cholesterol|ldl|hdl", "Cholesterol/lipid information detected."),
+        (r"thyroid|tsh|t3|t4", "Thyroid-related information detected."),
+        (r"vitamin|b12|vitamin d", "Vitamin-related information detected."),
+        (r"medication|tablet|capsule|prescription", "Medication information detected."),
+        (r"diagnosis|impression|clinical impression", "Diagnosis/impression section detected."),
+        (r"cbc|complete blood count|wbc|platelet", "CBC/blood-count information detected."),
+        (r"creatinine|urea|kidney", "Kidney-function information detected."),
+        (r"liver|sgot|sgpt|bilirubin", "Liver-function information detected.")
+    ]
+    for pattern, message in patterns:
+        if re.search(pattern, lower) and message not in findings:
+            findings.append(message)
     if cleaned:
-        preview = cleaned[:900]
-        conclusion = ("The uploaded report contains readable clinical text. Key topics detected are listed below. "
-                      "This prototype summary is informational and must not be treated as a diagnosis or treatment recommendation.")
-        extraction = "Text extracted from PDF."
-    elif content_type == "application/pdf":
-        preview = ""
-        conclusion = ("The PDF was uploaded successfully, but readable text could not be extracted. "
-                      "Please use a text-based PDF or a clearer scan. No medical conclusion was generated.")
-        extraction = "PDF text extraction unavailable for this document."
+        conclusion = ("The report was successfully processed and readable clinical information was detected. "
+                      "The system identified the topics shown below for review. Values and clinical meaning should "
+                      "be verified against the original report by a qualified healthcare professional.")
+        status = "ready"
     else:
-        preview = ""
-        conclusion = ("The image report was uploaded successfully. Image OCR is not enabled in this local prototype yet, "
-                      "so no clinical conclusion was generated from image contents.")
-        extraction = "Image OCR not enabled."
-    return {"status":"ready","title":original_name,"extraction":extraction,"findings":findings[:6],
-            "conclusion":conclusion,"text_preview":preview,
-            "disclaimer":"Prototype-only informational summary; not a diagnosis and not a substitute for a qualified clinician."}
+        conclusion = ("The report was uploaded, but readable content could not be extracted. "
+                      "Please upload a clearer scan or text-based PDF. No clinical conclusion was generated.")
+        status = "needs_review"
+    return {"status":status,"title":original_name,"extraction":method,"findings":findings[:8],
+            "conclusion":conclusion,"text_preview":cleaned[:1400],
+            "disclaimer":"Prototype-only informational summary. It does not diagnose conditions, prescribe treatment, or replace professional medical review."}
+
 
 @app.get("/api/my-medical-reports")
 def list_my_medical_reports(x_demo_role: str | None = Header(default=None), authorization: str | None = Header(default=None)):
