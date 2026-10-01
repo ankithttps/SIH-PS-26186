@@ -3,10 +3,18 @@ from pathlib import Path
 import sqlite3
 import mimetypes
 import secrets
+import json
+import re
 
 from fastapi import FastAPI, HTTPException, Header, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
+from fastapi.responses import FileResponse
+
+try:
+    from pypdf import PdfReader
+except Exception:
+    PdfReader = None
 
 BASE_DIR = Path(__file__).resolve().parent
 DB_PATH = BASE_DIR / "rakshakwell.db"
@@ -72,12 +80,15 @@ def init_db():
     CREATE TABLE IF NOT EXISTS medical_reports (
       id INTEGER PRIMARY KEY AUTOINCREMENT, person_id TEXT NOT NULL,
       original_name TEXT NOT NULL, stored_name TEXT NOT NULL UNIQUE,
-      content_type TEXT NOT NULL, size_bytes INTEGER NOT NULL, created_at TEXT NOT NULL
+      content_type TEXT NOT NULL, size_bytes INTEGER NOT NULL, created_at TEXT NOT NULL, analysis TEXT
     );
     CREATE TABLE IF NOT EXISTS sessions (
       token TEXT PRIMARY KEY, username TEXT NOT NULL, role TEXT NOT NULL, person_id TEXT, created_at TEXT NOT NULL
     );
     """)
+    report_cols={r["name"] for r in conn.execute("PRAGMA table_info(medical_reports)").fetchall()}
+    if "analysis" not in report_cols:
+        conn.execute("ALTER TABLE medical_reports ADD COLUMN analysis TEXT")
     if conn.execute("SELECT COUNT(*) AS n FROM personnel").fetchone()["n"] == 0:
         seed = seed_personnel_rows()
         conn.executemany("INSERT INTO personnel VALUES (?,?,?,?,?,?,?,?,?,?)", seed)
@@ -203,6 +214,106 @@ def calculate_wellness(data, person):
     )
     return round(max(0, min(100, 100-points)))
 
+ALLOWED_REPORT_TYPES = {"application/pdf", "image/jpeg", "image/png"}
+MAX_REPORT_SIZE = 10 * 1024 * 1024
+
+def build_report_analysis(original_name: str, content_type: str, raw: bytes):
+    text = ""
+    if content_type == "application/pdf" and PdfReader:
+        try:
+            from io import BytesIO
+            reader = PdfReader(BytesIO(raw))
+            text = "\n".join((page.extract_text() or "") for page in reader.pages)
+        except Exception:
+            text = ""
+    cleaned = re.sub(r"\s+", " ", text).strip()
+    lower = cleaned.lower()
+    findings = []
+    keywords = {
+        "blood pressure": "Blood-pressure information was detected in the report.",
+        "hemoglobin": "Hemoglobin-related information was detected.",
+        "glucose": "Glucose-related information was detected.",
+        "sugar": "Blood-sugar related information was detected.",
+        "cholesterol": "Cholesterol-related information was detected.",
+        "thyroid": "Thyroid-related information was detected.",
+        "vitamin": "Vitamin-related information was detected.",
+        "medication": "Medication information was detected.",
+        "diagnosis": "A diagnosis section/reference was detected in the document.",
+        "cbc": "CBC/laboratory information was detected."
+    }
+    for key, message in keywords.items():
+        if key in lower: findings.append(message)
+    if cleaned:
+        preview = cleaned[:900]
+        conclusion = ("The uploaded report contains readable clinical text. Key topics detected are listed below. "
+                      "This prototype summary is informational and must not be treated as a diagnosis or treatment recommendation.")
+        extraction = "Text extracted from PDF."
+    elif content_type == "application/pdf":
+        preview = ""
+        conclusion = ("The PDF was uploaded successfully, but readable text could not be extracted. "
+                      "Please use a text-based PDF or a clearer scan. No medical conclusion was generated.")
+        extraction = "PDF text extraction unavailable for this document."
+    else:
+        preview = ""
+        conclusion = ("The image report was uploaded successfully. Image OCR is not enabled in this local prototype yet, "
+                      "so no clinical conclusion was generated from image contents.")
+        extraction = "Image OCR not enabled."
+    return {"status":"ready","title":original_name,"extraction":extraction,"findings":findings[:6],
+            "conclusion":conclusion,"text_preview":preview,
+            "disclaimer":"Prototype-only informational summary; not a diagnosis and not a substitute for a qualified clinician."}
+
+@app.get("/api/my-medical-reports")
+def list_my_medical_reports(x_demo_role: str | None = Header(default=None), authorization: str | None = Header(default=None)):
+    ctx = require_role(x_demo_role, {"Personnel"}, authorization)
+    conn = connect()
+    rows = [dict(r) for r in conn.execute(
+        "SELECT id,original_name,content_type,size_bytes,created_at,analysis FROM medical_reports WHERE person_id=? ORDER BY id DESC",
+        (ctx["person_id"],))]
+    conn.close()
+    for row in rows: row["analysis"] = json.loads(row["analysis"]) if row.get("analysis") else None
+    return rows
+
+@app.post("/api/my-medical-reports")
+async def upload_my_medical_report(file: UploadFile = File(...), x_demo_role: str | None = Header(default=None), authorization: str | None = Header(default=None)):
+    ctx = require_role(x_demo_role, {"Personnel"}, authorization)
+    if file.content_type not in ALLOWED_REPORT_TYPES: raise HTTPException(400, "Only PDF, JPG and PNG files are supported")
+    raw = await file.read()
+    if len(raw) > MAX_REPORT_SIZE: raise HTTPException(413, "File size must be 10 MB or less")
+    safe_name = Path(file.filename or "medical_report").name
+    stored_name = f"{secrets.token_hex(16)}_{safe_name}"
+    (UPLOAD_DIR / stored_name).write_bytes(raw)
+    analysis = build_report_analysis(safe_name, file.content_type, raw)
+    conn = connect()
+    cur = conn.execute("INSERT INTO medical_reports(person_id,original_name,stored_name,content_type,size_bytes,created_at,analysis) VALUES (?,?,?,?,?,?,?)",
+        (ctx["person_id"],safe_name,stored_name,file.content_type,len(raw),now(),json.dumps(analysis)))
+    conn.commit()
+    row = conn.execute("SELECT id,original_name,content_type,size_bytes,created_at,analysis FROM medical_reports WHERE id=?", (cur.lastrowid,)).fetchone()
+    conn.close()
+    result = dict(row); result["analysis"] = json.loads(result["analysis"])
+    return result
+
+@app.get("/api/my-medical-reports/{report_id}/download")
+def download_my_medical_report(report_id:int, x_demo_role: str | None = Header(default=None), authorization: str | None = Header(default=None)):
+    ctx = require_role(x_demo_role, {"Personnel"}, authorization)
+    conn = connect()
+    row = conn.execute("SELECT * FROM medical_reports WHERE id=? AND person_id=?", (report_id,ctx["person_id"])).fetchone()
+    conn.close()
+    if not row: raise HTTPException(404,"Report not found")
+    path = UPLOAD_DIR / row["stored_name"]
+    if not path.exists(): raise HTTPException(404,"Stored report file not found")
+    return FileResponse(path,media_type=row["content_type"],filename=row["original_name"])
+
+@app.delete("/api/my-medical-reports/{report_id}")
+def delete_my_medical_report(report_id:int, x_demo_role: str | None = Header(default=None), authorization: str | None = Header(default=None)):
+    ctx = require_role(x_demo_role, {"Personnel"}, authorization)
+    conn=connect()
+    row=conn.execute("SELECT stored_name FROM medical_reports WHERE id=? AND person_id=?",(report_id,ctx["person_id"])).fetchone()
+    if not row: conn.close(); raise HTTPException(404,"Report not found")
+    conn.execute("DELETE FROM medical_reports WHERE id=? AND person_id=?",(report_id,ctx["person_id"])); conn.commit(); conn.close()
+    path=UPLOAD_DIR/row["stored_name"]
+    if path.exists(): path.unlink()
+    return {"ok":True}
+
 @app.get("/health")
 def health():
     return {"status":"ok","service":"rakshakwell-api","demo":True}
@@ -216,7 +327,7 @@ def list_audit_events(x_demo_role: str | None = Header(default=None), authorizat
     return rows
 
 @app.post("/api/audit-events")
-def create_audit_event(data: AuditEventIn, x_demo_role: str | None = Header(default=None)):
+def create_audit_event(data: AuditEventIn, x_demo_role: str | None = Header(default=None), authorization: str | None = Header(default=None)):
     require_role(x_demo_role, {"Welfare Officer", "Commander"})
     data.role = x_demo_role
     conn = connect()
@@ -230,7 +341,7 @@ def create_audit_event(data: AuditEventIn, x_demo_role: str | None = Header(defa
     return dict(row)
 
 @app.get("/api/personnel")
-def list_personnel(x_demo_role: str | None = Header(default=None)):
+def list_personnel(x_demo_role: str | None = Header(default=None), authorization: str | None = Header(default=None)):
     require_role(x_demo_role, {"Welfare Officer", "Commander", "Personnel"}, authorization)
     conn=connect()
     if x_demo_role == "Commander":
@@ -243,7 +354,7 @@ def list_personnel(x_demo_role: str | None = Header(default=None)):
     return rows
 
 @app.get("/api/personnel/{person_id}")
-def get_personnel(person_id: str, x_demo_role: str | None = Header(default=None)):
+def get_personnel(person_id: str, x_demo_role: str | None = Header(default=None), authorization: str | None = Header(default=None)):
     require_person_scope(person_id, x_demo_role, authorization)
     conn=connect()
     row=conn.execute("SELECT * FROM personnel WHERE id=?", (person_id,)).fetchone()
@@ -259,7 +370,7 @@ def get_personnel(person_id: str, x_demo_role: str | None = Header(default=None)
     return result
 
 @app.post("/api/checkins")
-def create_checkin(data: CheckinIn, x_demo_role: str | None = Header(default=None)):
+def create_checkin(data: CheckinIn, x_demo_role: str | None = Header(default=None), authorization: str | None = Header(default=None)):
     require_person_scope(data.person_id, x_demo_role, authorization)
     conn=connect()
     person=conn.execute("SELECT * FROM personnel WHERE id=?", (data.person_id,)).fetchone()
@@ -286,7 +397,7 @@ def create_checkin(data: CheckinIn, x_demo_role: str | None = Header(default=Non
     return {"wellness":wellness,"risk":risk,"alert_id":alert_id,"created_at":timestamp,"demo":True}
 
 @app.get("/api/alerts")
-def list_alerts(x_demo_role: str | None = Header(default=None)):
+def list_alerts(x_demo_role: str | None = Header(default=None), authorization: str | None = Header(default=None)):
     require_role(x_demo_role, {"Welfare Officer", "Commander"})
     if x_demo_role == "Commander":
         conn=connect()
@@ -315,7 +426,7 @@ def review_alert(alert_id:int,data:ReviewIn,x_demo_role: str | None = Header(def
     return dict(row)
 
 @app.get("/api/interventions")
-def list_interventions(x_demo_role: str | None = Header(default=None)):
+def list_interventions(x_demo_role: str | None = Header(default=None), authorization: str | None = Header(default=None)):
     require_role(x_demo_role, {"Welfare Officer", "Commander"})
     if x_demo_role == "Commander": return []
     conn=connect()
@@ -324,7 +435,7 @@ def list_interventions(x_demo_role: str | None = Header(default=None)):
     return rows
 
 @app.post("/api/interventions")
-def create_intervention(data:InterventionIn,x_demo_role: str | None = Header(default=None)):
+def create_intervention(data:InterventionIn,x_demo_role: str | None = Header(default=None), authorization: str | None = Header(default=None)):
     require_person_scope(data.person_id, x_demo_role)
     conn=connect()
     cur=conn.execute(
@@ -336,7 +447,7 @@ def create_intervention(data:InterventionIn,x_demo_role: str | None = Header(def
     return dict(row)
 
 @app.post("/api/followups")
-def create_followup(data:FollowupIn,x_demo_role: str | None = Header(default=None)):
+def create_followup(data:FollowupIn,x_demo_role: str | None = Header(default=None), authorization: str | None = Header(default=None)):
     require_person_scope(data.person_id, x_demo_role)
     conn=connect()
     cur=conn.execute(
@@ -348,7 +459,7 @@ def create_followup(data:FollowupIn,x_demo_role: str | None = Header(default=Non
     return dict(row)
 
 @app.get("/api/followups")
-def list_followups(x_demo_role: str | None = Header(default=None)):
+def list_followups(x_demo_role: str | None = Header(default=None), authorization: str | None = Header(default=None)):
     require_role(x_demo_role, {"Welfare Officer", "Commander"})
     if x_demo_role == "Commander": return []
     conn=connect()
@@ -390,7 +501,7 @@ def reset_demo():
 
 
 @app.get("/api/analytics/units")
-def unit_analytics(x_demo_role: str | None = Header(default=None)):
+def unit_analytics(x_demo_role: str | None = Header(default=None), authorization: str | None = Header(default=None)):
     require_role(x_demo_role, {"Welfare Officer", "Commander"})
     conn=connect()
     rows=conn.execute(
