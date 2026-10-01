@@ -120,6 +120,81 @@ function App(){
 }
 
 
+
+function PreviousMedicalReports(){
+ const [reports,setReports]=useState([]);
+ const [dragging,setDragging]=useState(false);
+ const [uploading,setUploading]=useState(false);
+ const [message,setMessage]=useState('');
+ const inputRef=React.useRef(null);
+
+ async function loadReports(){
+   try{const data=await fetchJson('/api/my-medical-reports');setReports(data);setMessage('');}
+   catch{setMessage('Reports could not be loaded right now.');}
+ }
+ useEffect(()=>{loadReports();},[]);
+
+ async function uploadFile(file){
+   if(!file)return;
+   setMessage('');
+   const allowed=['application/pdf','image/jpeg','image/png'];
+   if(!allowed.includes(file.type)){setMessage('Only PDF, JPG and PNG files are supported.');return;}
+   if(file.size>10*1024*1024){setMessage('File size must be 10 MB or less.');return;}
+   const body=new FormData();
+   body.append('file',file);
+   setUploading(true);
+   try{
+     await fetchJson('/api/my-medical-reports',{method:'POST',body});
+     await loadReports();
+     setMessage('Report uploaded securely.');
+   }catch(error){
+     setMessage(error?.message==='API 413'?'File size must be 10 MB or less.':'Upload failed. Please try again.');
+   }finally{setUploading(false);}
+ }
+ function onDrop(e){e.preventDefault();setDragging(false);uploadFile(e.dataTransfer.files?.[0]);}
+ async function downloadReport(id,name){
+   try{
+     const headers={ 'X-Demo-Role':getDemoRole() };
+     if(getToken())headers.Authorization=`Bearer ${getToken()}`;
+     const r=await fetch(`${API_BASE}/api/my-medical-reports/${id}/download`,{headers});
+     if(!r.ok)throw new Error();
+     const blob=await r.blob();
+     const url=URL.createObjectURL(blob);
+     const a=document.createElement('a');a.href=url;a.download=name;a.click();URL.revokeObjectURL(url);
+   }catch{setMessage('Could not open that report.');}
+ }
+ async function deleteReport(id){
+   try{await fetchJson(`/api/my-medical-reports/${id}`,{method:'DELETE'});await loadReports();setMessage('Report removed.');}
+   catch{setMessage('Could not remove that report.');}
+ }
+ return <section className="card medicalreports">
+   <div className="cardhead">
+    <div><div className="eyebrow">PRIVATE HEALTH RECORD</div><h2>Previous Medical Reports</h2><p>Upload your earlier reports for your own reference.</p></div>
+    <span className="suggestionprivacy"><LockKeyhole size={13}/> Personnel only</span>
+   </div>
+   <div className={dragging?'reportdropzone dragging':'reportdropzone'} onDragOver={e=>{e.preventDefault();setDragging(true)}} onDragLeave={()=>setDragging(false)} onDrop={onDrop}>
+     <div className="reportuploadicon"><FileText size={24}/></div>
+     <b>{uploading?'Uploading securely…':'Drag & drop your report here'}</b>
+     <span>or choose a file from your device</span>
+     <button className="primary reportbrowse" disabled={uploading} onClick={()=>inputRef.current?.click()}><FolderOpen size={15}/> Browse Files</button>
+     <input ref={inputRef} type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" hidden onChange={e=>{uploadFile(e.target.files?.[0]);e.target.value=''}}/>
+     <small>PDF, JPG or PNG · Maximum 10 MB</small>
+   </div>
+   {message&&<div className="reportmessage"><Info size={14}/><span>{message}</span></div>}
+   <div className="reportlist">
+    {reports.length===0?<div className="reportempty"><FileText size={18}/><span>No previous reports uploaded yet.</span></div>:
+      reports.map(r=><div className="reportrow" key={r.id}>
+       <div className="reportfileicon"><FileText size={17}/></div>
+       <div className="reportmeta"><b>{r.original_name}</b><span>{r.content_type?.split('/').pop()?.toUpperCase()} · {(r.size_bytes/1024/1024).toFixed(2)} MB · {new Date(r.created_at).toLocaleDateString()}</span></div>
+       <button className="softbtn" onClick={()=>downloadReport(r.id,r.original_name)}>View / Download</button>
+       <button className="reportdelete" onClick={()=>deleteReport(r.id)} aria-label={`Delete ${r.original_name}`}><X size={15}/></button>
+      </div>)
+    }
+   </div>
+   <div className="suggestionfooter"><Shield size={14}/><span>Reports are stored separately from the welfare risk model and are not used for automatic stress-risk scoring.</span></div>
+ </section>;
+}
+
 function Security({role,events,sessionMinutes,setSessionMinutes,mfaDemo,setMfaDemo}){
  const controls=[
   {label:'Role-based access',status:'Active',text:'Current demo role controls the visible welfare workspace.'},
@@ -267,7 +342,7 @@ function Dashboard({stats,personnel,role,onAssessment,onSelect,onPersonnel,onDas
   <div className="notice"><Shield size={19}/><div><b>Confidential welfare workspace</b><span>Only authorized roles can access identifiable information. Risk indicators are support signals, not diagnoses.</span></div></div>
   <section className="card demoflow"><div className="cardhead"><div><h2>End-to-end welfare flow</h2><p>Presentation-ready demo path from voluntary check-in to human-reviewed outcome</p></div><span className="flowcount">{flow.filter(x=>x.done).length}/5 complete</span></div><div className="flowsteps">{flow.map((x,i)=><div className={'flowstep '+(x.done?'complete':'pending')} key={x.title}><div className="flowcircle">{x.done?<CheckCircle2 size={15}/>:<span>{String(i+1).padStart(2,'0')}</span>}</div><div><b>{x.title}</b><span>{x.done?'Completed in this demo':'Waiting for previous stage'}</span></div>{i<flow.length-1&&<div className={'flowconnector '+(flow[i+1].done?'complete':'')}/>}</div>)}</div><div className="flownote"><Info size={14}/><span>This is a demo workflow. Predictive signals are illustrative and require authorized human review before welfare action.</span></div></section>
   <div className="stats"><Stat icon={Users} label="Personnel monitored" value={stats.total} sub="Active demo records"/><Stat icon={HeartPulse} label="Avg. wellness" value={stats.avg+'%'} sub="Self-report + workload signals"/><Stat icon={AlertTriangle} label="Attention signals" value={stats.elevated+stats.high} sub={high+' high • '+elevated+' elevated'} warn/><Stat icon={ClipboardCheck} label="Avg. check-ins" value={stats.checkins} sub="Across demo personnel"/></div>
-  {role!=='Personnel'&&<DemoPresentationFlow demoMode={demoMode} setDemoMode={setDemoMode} onAssessment={onAssessment} onPersonnel={onPersonnel} onDashboard={()=>setPage('dashboard')} onSelect={onSelect} personnel={personnel}/>}  {role!=='Personnel'&&<WhatIfSimulator personnel={personnel}/>}   {role==='Personnel'&&<PersonnelWellnessSuggestions person={personnel[0]} onAssessment={onAssessment}/>} 
+  {role!=='Personnel'&&<DemoPresentationFlow demoMode={demoMode} setDemoMode={setDemoMode} onAssessment={onAssessment} onPersonnel={onPersonnel} onDashboard={()=>setPage('dashboard')} onSelect={onSelect} personnel={personnel}/>}  {role!=='Personnel'&&<WhatIfSimulator personnel={personnel}/>}   {role==='Personnel'&&<PersonnelWellnessSuggestions person={personnel[0]} onAssessment={onAssessment}/>} {role==='Personnel'&&<PreviousMedicalReports/>} 
   {role!=='Personnel'&&<UnitWelfareAnalytics personnel={personnel}/>} 
   {role!=='Personnel'&&<RiskIntelligence personnel={personnel}/>} 
   {role!=='Personnel'&&alerts.length>0&&<section id="early-welfare-alerts" className="card alertcard"><div className="cardhead"><div><h2>Early welfare alerts</h2><p>New signals requiring authorized human review</p></div><span className="livepill"><Activity size={13}/> Live demo</span></div><div className="alertlist">{alerts.map(a=><div className="alertitem" key={a.id}><div className="alerticon"><AlertTriangle size={17}/></div><div className="alertbody"><b>{a.name} • {a.risk} attention signal</b><span>Primary factor: {a.reason} • {a.time}</span>{a.status==='Reviewed'&&<small className="reviewmeta">Reviewed by {a.reviewedBy} • {a.reviewedAt}</small>}</div>{a.status==='Open'?<button className="textbtn" onClick={()=>onReviewAlert(a.id)}>Review <ChevronRight size={15}/></button>:<span className="reviewedpill"><CheckCircle2 size={13}/> Reviewed</span>}</div>)}</div><div className="alertfoot"><CheckCircle2 size={15}/> Alerts are prompts for welfare review, not automated decisions. Open: {alerts.filter(a=>a.status==='Open').length} • Reviewed: {alerts.filter(a=>a.status==='Reviewed').length}</div></section>}{role!=='Personnel'&&alerts.some(a=>a.status==='Reviewed')&&<section id="welfare-intervention-workflow" className="card interventioncard"><div className="cardhead"><div><h2>Welfare intervention workflow</h2><p>Human-led next steps after alert review</p></div><span className="livepill">Review → Support</span></div><div className="workflow"><div className="workflowstep done"><b>01</b><span>Signal detected</span></div><div className="workflowline"/><div className="workflowstep done"><b>02</b><span>Officer reviewed</span></div><div className="workflowline"/><div className="workflowstep active"><b>03</b><span>Choose support</span></div><div className="workflowline"/><div className="workflowstep"><b>04</b><span>Follow-up</span></div></div><div className="interventionchoices">{alerts.filter(a=>a.status==='Reviewed').slice(0,2).map(a=><div className="interventionitem" key={a.id}><div><b>{a.name}</b><span>{a.reason}</span></div><div className="choicebuttons"><button className="softbtn" onClick={()=>onIntervention(a,'Confidential welfare conversation')}>Welfare conversation</button><button className="softbtn" onClick={()=>onIntervention(a,'Review duty / leave context')}>Duty / leave review</button></div></div>)}</div>{interventions.length>0&&<div className="followups"><b>Planned follow-ups</b>{interventions.slice(0,3).map(x=><div key={x.id}><span>{x.name} • {x.action}</span><small>{x.time}</small></div>)}</div>}{followups.length>0&&<div className="outcomes"><div className="outcomehead"><div><b>Follow-up & outcome tracking</b><span>Record what happened after human-led support.</span></div><span className="outcomepill">{followups.filter(x=>x.status==='Pending').length} pending</span></div>{followups.slice(0,3).map(x=><div className="outcomeitem" key={x.id}><div className="outcomename"><b>{x.name}</b><span>{x.action}</span></div>{x.status==='Pending'?<div className="outcomebuttons"><button className="outcome improved" onClick={()=>onOutcome(x.id,'Improved')}>Improved</button><button className="outcome stable" onClick={()=>onOutcome(x.id,'Stable')}>Stable</button><button className="outcome review" onClick={()=>onOutcome(x.id,'Further review required')}>Further review</button></div>:<span className={'outcomestatus '+x.outcome.toLowerCase().replaceAll(' ','-')}><CheckCircle2 size={13}/>{x.outcome}</span>}</div>)}</div>}</section>}{role!=='Personnel'&&<section className="card activitycard"><div className="cardhead"><div><h2>Welfare activity timeline</h2><p>Recent human-reviewed actions in this demo workspace</p></div><Clock3 size={18} className="mutedicon"/></div><div className="activitylist">{activity.length===0?<div className="emptyactivity">No activity yet. Complete a check-in or review an alert to populate the timeline.</div>:activity.slice(0,5).map(x=><div className="activityitem" key={x.id}><div className={'activitydot '+x.type}></div><div><b>{x.text}</b><span>{x.time}</span></div></div>)}</div></section>}<section className="analytics">
