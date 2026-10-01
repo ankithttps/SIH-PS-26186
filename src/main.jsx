@@ -274,7 +274,30 @@ function Dashboard({stats,personnel,role,onAssessment,onSelect,onPersonnel,onDas
    <div className="card trendcard"><div className="cardhead"><div><h2>Wellness trend</h2><p>Recent illustrative check-in pattern</p></div><div className="legend"><span><i/>Current</span></div></div><TrendChart personnel={personnel}/></div>
    <div className="card distribution"><div className="cardhead"><div><h2>Signal distribution</h2><p>Current demo risk signals</p></div><BarChart3 size={18} className="mutedicon"/></div><div className="distrows"><DistRow label="Low" count={low} total={personnel.length} type="low"/><DistRow label="Elevated" count={elevated} total={personnel.length} type="elevated"/><DistRow label="High" count={high} total={personnel.length} type="high"/></div><div className="signalnote"><Info size={14}/> Signals indicate review priority, not diagnosis.</div></div>
   </section>
-  <section className="grid2"><div className="card"><div className="cardhead"><div><h2>Welfare signal overview</h2><p>Click a person to inspect demo context</p></div><button className="textbtn" onClick={onPersonnel}>View all <ChevronRight size={15}/></button></div>{personnel.map(p=><button className="personrow rowbutton" key={p.id} onClick={()=>onSelect(p)}><PersonRow p={p}/></button>)}</div><div className="card recommendedcard"><div className="cardhead"><div><div className="eyebrow actioneyebrow">WELFARE PRIORITIES</div><h2>Recommended actions</h2><p>Human-reviewed next steps based on current demo signals</p></div><span className="actioncount">{alerts.filter(a=>a.status==='Open').length} open</span></div><div className="actionlist"><Action icon={HeartPulse} title="Offer confidential check-in" text="Start with a supportive conversation for personnel showing attention signals." onClick={()=>goToRecommended('checkin')} priority/><Action icon={Clock3} title="Review duty load" text="Check extended duty patterns and consider workload balancing." onClick={()=>goToRecommended('review')} priority/><Action icon={CalendarDays} title="Consider leave discussion" text="Review leave access and recovery time where low leave frequency is visible." onClick={()=>goToRecommended('leave')}/></div><div className="safe"><CheckCircle2 size={17}/><span>Recommendations are prompts for authorized human review — never automatic decisions.</span></div></div></section>
+  <section className="grid2"><div className="card"><div className="cardhead"><div><h2>Welfare signal overview</h2><p>Click a person to inspect demo context</p></div><button className="textbtn" onClick={onPersonnel}>View all <ChevronRight size={15}/></button></div>{personnel.map(p=><button className="personrow rowbutton" key={p.id} onClick={()=>onSelect(p)}><PersonRow p={p}/></button>)}</div><div className="card recommendedcard">
+ <div className="recommendedhead">
+  <div><div className="eyebrow actioneyebrow">WELFARE PRIORITIES</div><h2>Recommended Actions</h2><p>Suggested next steps from current welfare signals</p></div>
+  <div className="actioncount"><AlertCircle size={12}/><span>{alerts.filter(a=>a.status==='Open').length} open</span></div>
+ </div>
+ <div className="actioncards">
+  <button className="recommendation priority" onClick={()=>goToRecommended('checkin')}>
+   <div className="recommendationtop"><div className="recommendationicon support"><HeartPulse size={18}/></div><span className="prioritytag">HIGH PRIORITY</span></div>
+   <div className="recommendationbody"><b>Offer confidential check-in</b><span>Start with a supportive conversation for personnel showing attention signals.</span></div>
+   <div className="recommendationfoot"><small>Welfare support</small><ChevronRight size={15}/></div>
+  </button>
+  <button className="recommendation" onClick={()=>goToRecommended('review')}>
+   <div className="recommendationtop"><div className="recommendationicon workload"><Clock3 size={18}/></div><span className="prioritytag normal">REVIEW</span></div>
+   <div className="recommendationbody"><b>Review duty load</b><span>Check extended duty patterns and consider workload balancing.</span></div>
+   <div className="recommendationfoot"><small>Workload support</small><ChevronRight size={15}/></div>
+  </button>
+  <button className="recommendation" onClick={()=>goToRecommended('leave')}>
+   <div className="recommendationtop"><div className="recommendationicon leave"><CalendarDays size={18}/></div><span className="prioritytag normal">REVIEW</span></div>
+   <div className="recommendationbody"><b>Consider leave discussion</b><span>Review recovery time and leave access where low frequency is visible.</span></div>
+   <div className="recommendationfoot"><small>Recovery support</small><ChevronRight size={15}/></div>
+  </button>
+ </div>
+ <div className="recommendationsafe"><ShieldCheck size={15}/><span>Recommendations are supportive prompts. Authorized human review is required before action.</span></div>
+</div>
   <div className="footer-note"><LockKeyhole size={15}/> Demo data only • No medical diagnosis • Access is role-based</div>
  </>;
 }
