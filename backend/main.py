@@ -1,14 +1,17 @@
 from datetime import datetime, timezone
 from pathlib import Path
 import sqlite3
+import mimetypes
 import secrets
 
-from fastapi import FastAPI, HTTPException, Header
+from fastapi import FastAPI, HTTPException, Header, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 BASE_DIR = Path(__file__).resolve().parent
 DB_PATH = BASE_DIR / "rakshakwell.db"
+UPLOAD_DIR = BASE_DIR / "uploads" / "medical_reports"
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 app = FastAPI(
     title="RakshakWell API",
@@ -65,6 +68,11 @@ def init_db():
     );
     CREATE TABLE IF NOT EXISTS demo_users (
       username TEXT PRIMARY KEY, role TEXT NOT NULL, password TEXT NOT NULL, person_id TEXT
+    );
+    CREATE TABLE IF NOT EXISTS medical_reports (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, person_id TEXT NOT NULL,
+      original_name TEXT NOT NULL, stored_name TEXT NOT NULL UNIQUE,
+      content_type TEXT NOT NULL, size_bytes INTEGER NOT NULL, created_at TEXT NOT NULL
     );
     CREATE TABLE IF NOT EXISTS sessions (
       token TEXT PRIMARY KEY, username TEXT NOT NULL, role TEXT NOT NULL, person_id TEXT, created_at TEXT NOT NULL
