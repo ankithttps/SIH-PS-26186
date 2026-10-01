@@ -1,4 +1,4 @@
-import React,{useEffect,useMemo,useState} from 'react';
+import React,{useEffect,useMemo,useState,useRef} from 'react';
 import {createRoot} from 'react-dom/client';
 import {Shield,ShieldCheck,LayoutDashboard,ClipboardCheck,Users,LockKeyhole,AlertTriangle,AlertCircle,HeartPulse,CalendarDays,Activity,ChevronRight,CheckCircle2,Clock3,Brain,Menu,X,LogOut,TrendingUp,UserRound,BarChart3,Info,MessageCircle,SlidersHorizontal,FolderOpen,FileText,Settings2,ArrowUpRight,ArrowDownRight} from 'lucide-react';
 import './styles.css';
@@ -126,7 +126,7 @@ function PreviousMedicalReports(){
  const [dragging,setDragging]=useState(false);
  const [uploading,setUploading]=useState(false);
  const [message,setMessage]=useState('');
- const inputRef=React.useRef(null);
+ const inputRef=useRef(null);
 
  async function loadReports(){
    try{const data=await fetchJson('/api/my-medical-reports');setReports(data);setMessage('');}
@@ -188,6 +188,7 @@ function PreviousMedicalReports(){
        <div className="reportmeta"><b>{r.original_name}</b><span>{r.content_type?.split('/').pop()?.toUpperCase()} · {(r.size_bytes/1024/1024).toFixed(2)} MB · {new Date(r.created_at).toLocaleDateString()}</span></div>
        <button className="softbtn" onClick={()=>downloadReport(r.id,r.original_name)}>View / Download</button>
        <button className="reportdelete" onClick={()=>deleteReport(r.id)} aria-label={`Delete ${r.original_name}`}><X size={15}/></button>
+       {r.analysis&&<div className="reportanalysis"><div className="reportanalysishead"><Brain size={15}/><div><b>AI-assisted report summary</b><span>{r.analysis.extraction}</span></div></div><div className="reportconclusion"><strong>Conclusion</strong><p>{r.analysis.conclusion}</p></div>{r.analysis.findings?.length>0&&<div className="reportfindings"><strong>Detected topics</strong>{r.analysis.findings.map(x=><span key={x}>• {x}</span>)}</div>}{r.analysis.text_preview&&<details className="reporttext"><summary>View extracted text</summary><p>{r.analysis.text_preview}</p></details>}<div className="reportdisclaimer"><Shield size={12}/><span>{r.analysis.disclaimer}</span></div></div>}
       </div>)
     }
    </div>
