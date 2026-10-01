@@ -328,7 +328,7 @@ def list_audit_events(x_demo_role: str | None = Header(default=None), authorizat
 
 @app.post("/api/audit-events")
 def create_audit_event(data: AuditEventIn, x_demo_role: str | None = Header(default=None), authorization: str | None = Header(default=None)):
-    require_role(x_demo_role, {"Welfare Officer", "Commander"})
+    require_role(x_demo_role, {"Welfare Officer", "Commander"}, authorization)
     data.role = x_demo_role
     conn = connect()
     cur = conn.execute(
@@ -436,7 +436,7 @@ def list_interventions(x_demo_role: str | None = Header(default=None), authoriza
 
 @app.post("/api/interventions")
 def create_intervention(data:InterventionIn,x_demo_role: str | None = Header(default=None), authorization: str | None = Header(default=None)):
-    require_person_scope(data.person_id, x_demo_role)
+    require_person_scope(data.person_id, x_demo_role, authorization)
     conn=connect()
     cur=conn.execute(
       "INSERT INTO interventions(person_id,name,action,created_at) VALUES (?,?,?,?)",
