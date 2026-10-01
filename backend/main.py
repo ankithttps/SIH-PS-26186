@@ -5,6 +5,7 @@ import mimetypes
 import secrets
 import json
 import re
+import os
 
 from fastapi import FastAPI, HTTPException, Header, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
@@ -415,7 +416,7 @@ def create_checkin(data: CheckinIn, x_demo_role: str | None = Header(default=Non
 
 @app.get("/api/alerts")
 def list_alerts(x_demo_role: str | None = Header(default=None), authorization: str | None = Header(default=None)):
-    require_role(x_demo_role, {"Welfare Officer", "Commander"})
+    require_role(x_demo_role, {"Welfare Officer", "Commander"}, authorization)
     if x_demo_role == "Commander":
         conn=connect()
         rows=[dict(r) for r in conn.execute("SELECT id,risk,status,created_at FROM alerts ORDER BY id DESC")]
@@ -427,7 +428,7 @@ def list_alerts(x_demo_role: str | None = Header(default=None), authorization: s
     return rows
 
 @app.post("/api/alerts/{alert_id}/review")
-def review_alert(alert_id:int,data:ReviewIn,x_demo_role: str | None = Header(default=None)):
+def review_alert(alert_id:int,data:ReviewIn,x_demo_role: str | None = Header(default=None), authorization: str | None = Header(default=None)):
     require_role(x_demo_role, {"Welfare Officer"}, authorization)
     data.role = x_demo_role
     conn=connect()
@@ -444,7 +445,7 @@ def review_alert(alert_id:int,data:ReviewIn,x_demo_role: str | None = Header(def
 
 @app.get("/api/interventions")
 def list_interventions(x_demo_role: str | None = Header(default=None), authorization: str | None = Header(default=None)):
-    require_role(x_demo_role, {"Welfare Officer", "Commander"})
+    require_role(x_demo_role, {"Welfare Officer", "Commander"}, authorization)
     if x_demo_role == "Commander": return []
     conn=connect()
     rows=[dict(r) for r in conn.execute("SELECT * FROM interventions ORDER BY id DESC")]
@@ -465,7 +466,7 @@ def create_intervention(data:InterventionIn,x_demo_role: str | None = Header(def
 
 @app.post("/api/followups")
 def create_followup(data:FollowupIn,x_demo_role: str | None = Header(default=None), authorization: str | None = Header(default=None)):
-    require_person_scope(data.person_id, x_demo_role)
+    require_person_scope(data.person_id, x_demo_role, authorization)
     conn=connect()
     cur=conn.execute(
       "INSERT INTO followups(person_id,name,action,created_at) VALUES (?,?,?,?)",
@@ -477,7 +478,7 @@ def create_followup(data:FollowupIn,x_demo_role: str | None = Header(default=Non
 
 @app.get("/api/followups")
 def list_followups(x_demo_role: str | None = Header(default=None), authorization: str | None = Header(default=None)):
-    require_role(x_demo_role, {"Welfare Officer", "Commander"})
+    require_role(x_demo_role, {"Welfare Officer", "Commander"}, authorization)
     if x_demo_role == "Commander": return []
     conn=connect()
     rows=[dict(r) for r in conn.execute("SELECT * FROM followups ORDER BY id DESC")]
@@ -485,8 +486,8 @@ def list_followups(x_demo_role: str | None = Header(default=None), authorization
     return rows
 
 @app.post("/api/followups/{followup_id}/outcome")
-def followup_outcome(followup_id:int,data:FollowupOutcomeIn,x_demo_role: str | None = Header(default=None)):
-    require_role(x_demo_role, {"Welfare Officer"})
+def followup_outcome(followup_id:int,data:FollowupOutcomeIn,x_demo_role: str | None = Header(default=None), authorization: str | None = Header(default=None)):
+    require_role(x_demo_role, {"Welfare Officer"}, authorization)
     if data.outcome not in {"Improved","Stable","Further review required"}:
         raise HTTPException(400,"Invalid follow-up outcome")
     conn=connect()
